@@ -2,7 +2,9 @@
 <html>
 	<head>
 		<title>Traffic Editor</title>
+		<link href="jquery-ui/jquery-ui.min.css" rel="stylesheet">
 		<script type="text/javascript" src="jquery-2.1.1.min.js"></script>
+		<script type="text/javascript" src="jquery-ui/jquery-ui.min.js"></script>
 		<script type="text/javascript" src="engine.js"></script>
 		<style>
 			body {
@@ -22,9 +24,15 @@
 				right: 0;
 				bottom: 0;
 				overflow: scroll;
+				margin: 0;
+				padding: 0;
 			}
 			#canvas {
 				border: 5px solid black;
+			}
+
+			.marker {
+				position: absolute;
 			}
 		</style>
 	</head>
@@ -36,6 +44,7 @@
 			</div>
 			<div>
 				<input type="button" id="buttonLoadFile" value="load" />
+				<input type="button" id="buttonDeserialize" value="deserialize" />
 				<input type="button" id="buttonSerialize" value="serialize" />
 			</div>
 			<div>
@@ -46,7 +55,13 @@
 			<canvas id="canvas" width="2048" height="2048"></canvas>
 		</div>
 		<script type="text/javascript">
-			var engine = new Engine(document.getElementById('canvas'));
+			var canvasContainer = $('#canvasContainer');
+			var canvas = $('#canvas')[0];
+			var canvasWidth = canvas.width;
+			var canvasHeight = canvas.height;
+			var context = canvas.getContext('2d');
+
+			var engine = new Engine(canvas);
 
 			var graph = null;
 
@@ -56,15 +71,95 @@
 				fileReader.onload = function(e) {
 					var text = e.target.result;
 					$('#text').val(text);
-					graph = Engine.Graph.deserialize(JSON.parse(text));
-					drawGraph();
+					loadGraph(text);
 				};
 				fileReader.readAsText(file);
 			});
 
-			var drawGraph = function() {
+			$('#buttonDeserialize').click(function() {
+				loadGraph($('#text').val());
+			});
+
+			$('#buttonSerialize').click(function() {
+				$('#text').val(JSON.stringify(graph.serialize()));
+			});
+
+			function loadGraph(text) {
+				graph = Engine.Graph.deserialize(JSON.parse(text));
+				loadMarkers();
+				drawGraph();
+			}
+
+			function drawGraph() {
+				context.clearRect(0, 0, canvasWidth, canvasHeight);
 				engine.drawGraph(graph);
 			};
+
+			function Marker(x, y, style, retrieve, onChange) {
+				this.onChange = onChange;
+			};
+
+			function loadMarkers() {
+				$('.marker').remove();
+
+				for(var i = 0; i < graph.vertices.length; ++i)
+					(function(vertex) {
+						// position marker
+						var div = $('<div class="marker vertexMarker' + vertex.id + ' ui-icon ui-icon-radio-on"></div>');
+						div.appendTo(canvasContainer);
+						div.css('left', vertex.positionX);
+						div.css('top', vertex.positionY);
+						div.draggable({
+							drag: function(event, ui) {
+								vertex.positionX = ui.position.left;
+								vertex.positionY = ui.position.top;
+
+								$('.vertexBezierMarker' + vertex.id).map(function() {
+									this.update();
+								});
+
+								graph.update();
+								drawGraph();
+							}
+						});
+					})(graph.vertices[i]);
+
+				for(var i = 0; i < graph.edges.length; ++i)
+					(function(edge) {
+						var addMarker = function(vertex, bezierLengthProperty, bezierMult) {
+							var div = $('<div class="marker edgeForwardMarker edgeMarker' + edge.id + ' vertexBezierMarker' + vertex.id + ' ui-icon ui-icon-bullet"></div>');
+							div.appendTo(canvasContainer);
+							div[0].update = function() {
+								div.css('left', vertex.positionX + vertex.directionX * edge[bezierLengthProperty]);
+								div.css('top', vertex.positionY + vertex.directionY * edge[bezierLengthProperty]);
+							};
+							div[0].update();
+							div.draggable({
+								drag: function(event, ui) {
+									var dirX = ui.position.left - vertex.positionX;
+									var dirY = ui.position.top - vertex.positionY;
+									var dirLength = Math.sqrt(dirX * dirX + dirY * dirY);
+									dirX /= dirLength;
+									dirY /= dirLength;
+									edge[bezierLengthProperty] = dirLength * bezierMult;
+									vertex.directionX = dirX * bezierMult;
+									vertex.directionY = dirY * bezierMult;
+
+									$('.vertexBezierMarker' + vertex.id).map(function() {
+										this.update();
+									});
+
+									graph.update();
+									drawGraph();
+								}
+							});
+						};
+						// backward marker
+						addMarker(edge.vertexA, 'bezierLengthA', 1);
+						// forward marker
+						addMarker(edge.vertexB, 'bezierLengthB', -1);
+					})(graph.edges[i]);
+			}
 		</script>
 	</body>
 </html>

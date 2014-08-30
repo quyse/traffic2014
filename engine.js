@@ -12,6 +12,7 @@ var edgeSegmentsCount = 10;
 // colors
 var styleColorEdgeBase = "#555";
 var styleColorEdgeLine = "#fff";
+var styleEdgeLineWidth = 3;
 
 // counters for ids
 var vertexId = 0;
@@ -136,6 +137,10 @@ Graph.prototype.getEdgeIndex = function(edge) {
 			return i;
 	throw "no such edge";
 };
+Graph.prototype.update = function() {
+	for(var i = 0; i < this.edges.length; ++i)
+		this.edges[i].updatePoints();
+};
 Graph.prototype.serialize = function() {
 	var self = this;
 	return {
@@ -192,6 +197,8 @@ function drawGraph(graph) {
 
 	for(var i = 0; i < edges.length; ++i) {
 		var edge = edges[i];
+		var vertexA = edge.vertexA;
+		var vertexB = edge.vertexB;
 		var points = edge.points;
 
 		// make path
@@ -203,6 +210,21 @@ function drawGraph(graph) {
 		for(var j = edgeSegmentsCount; j >= 0; --j)
 			context.lineTo(points[(j * 3 + 1) * 2 + 0], points[(j * 3 + 1) * 2 + 1]);
 		context.fill();
+
+		// center line
+		if(0) {
+			context.strokeStyle = styleColorEdgeLine;
+			context.lineWidth = styleEdgeLineWidth;
+			context.beginPath();
+			context.moveTo(vertexA.positionX, vertexA.positionY);
+			context.bezierCurveTo(
+				vertexA.positionX + vertexA.directionX * edge.bezierLengthA,
+				vertexA.positionY + vertexA.directionY * edge.bezierLengthA,
+				vertexB.positionX + vertexB.directionX * edge.bezierLengthB,
+				vertexB.positionY + vertexB.directionY * edge.bezierLengthB,
+				vertexB.positionX, vertexB.positionY);
+			context.stroke();
+		}
 	}
 }
 this.drawGraph = drawGraph;
