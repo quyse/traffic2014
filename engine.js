@@ -7,14 +7,16 @@ var context = canvas.getContext('2d');
 // width of edge in pixels
 var edgeHalfWidth = 25;
 // number of segments to draw edge
-var edgeSegmentsCount = 10;
+var edgeSegmentsCount = 20;
 
 // colors
 var styleColorEdgeBase = "#555";
 var styleColorEdgeLine = "#fff";
+var styleColorEdgeSiblingLine = "#00f";
+var styleColorEdgeSelection = "#0f0";
 var styleEdgeLineWidth = 2;
-var styleEdgeArrowLength = 10;
-var styleEdgeArrowSide = 5;
+var styleArrowLength = 10;
+var styleArrowSide = 5;
 var styleEdgeBorderDash = [10];
 var styleEdgeBorderSolid = [];
 
@@ -106,7 +108,7 @@ Edge.prototype.updatePoints = function() {
 
 		var tangentX = lerp(acdx_, cdbx_, t);
 		var tangentY = lerp(acdy_, cdby_, t);
-		var tangentLength = Math.sqrt(tangentX * tangentX + tangentY * tangentY);
+		var tangentLength = length(tangentX, tangentY);
 		tangentX /= tangentLength;
 		tangentY /= tangentLength;
 
@@ -124,6 +126,12 @@ Edge.prototype.updatePoints = function() {
 		this.points[(i * 3 + 2) * 2 + 0] = centerX - rightX;
 		this.points[(i * 3 + 2) * 2 + 1] = centerY - rightY;
 	}
+};
+Edge.prototype.getCenterX = function() {
+	return this.points[(Math.floor(edgeSegmentsCount / 2) * 3 + 0) * 2 + 0];
+};
+Edge.prototype.getCenterY = function() {
+	return this.points[(Math.floor(edgeSegmentsCount / 2) * 3 + 0) * 2 + 1];
 };
 
 function Graph() {
@@ -235,12 +243,12 @@ function drawGraph(graph) {
 
 		var correctionAX = vertexA.directionX;
 		var correctionAY = vertexA.directionY;
-		var correctionLength = Math.sqrt(correctionAX * correctionAX + correctionAY * correctionAY);
+		var correctionLength = length(correctionAX, correctionAY);
 		correctionAX /= correctionLength;
 		correctionAY /= correctionLength;
 		var correctionBX = vertexB.directionX;
 		var correctionBY = vertexB.directionY;
-		var correctionLength = Math.sqrt(correctionBX * correctionBX + correctionBY * correctionBY);
+		var correctionLength = length(correctionBX, correctionBY);
 		correctionBX /= correctionLength;
 		correctionBY /= correctionLength;
 		context.beginPath();
@@ -278,39 +286,55 @@ function drawGraph(graph) {
 
 		var arrowDirX = vertexB.positionX - vertexA.positionX;
 		var arrowDirY = vertexB.positionY - vertexA.positionY;
-		var arrowDirLength = Math.sqrt(arrowDirX * arrowDirX + arrowDirY * arrowDirY);
+		var arrowDirLength = length(arrowDirX, arrowDirY);
 		arrowDirX /= arrowDirLength;
 		arrowDirY /= arrowDirLength;
-		var arrowRightX = -arrowDirY * styleEdgeArrowSide;
-		var arrowRightY = arrowDirX * styleEdgeArrowSide;
-		arrowDirX *= styleEdgeArrowLength;
-		arrowDirY *= styleEdgeArrowLength;
-		var arrowPosX = points[(Math.floor(edgeSegmentsCount / 2) * 3 + 0) * 2 + 0];
-		var arrowPosY = points[(Math.floor(edgeSegmentsCount / 2) * 3 + 0) * 2 + 1];
-		context.beginPath();
-		context.moveTo(arrowPosX - arrowDirX, arrowPosY - arrowDirY);
-		context.lineTo(arrowPosX + arrowDirX, arrowPosY + arrowDirY);
-		context.stroke();
-		context.beginPath();
-		context.moveTo(arrowPosX - arrowRightX, arrowPosY - arrowRightY);
-		context.lineTo(arrowPosX + arrowDirX, arrowPosY + arrowDirY);
-		context.lineTo(arrowPosX + arrowRightX, arrowPosY + arrowRightY);
-		context.stroke();
 
-		// TEST circles
-		if(0) {
-		context.fillStyle = "#000";
-		for(var j = 0; j <= edgeSegmentsCount; ++j) {
-			for(var k = 0; k < 3; ++k) {
-				context.beginPath();
-				context.arc(points[(j * 3 + k) * 2 + 0], points[(j * 3 + k) * 2 + 1], 3, 0, Math.PI * 2);
-				context.fill();
-			}
-		}
-		}
+		drawArrow(
+			edge.getCenterX(),
+			edge.getCenterY(),
+			arrowDirX,
+			arrowDirY);
 	}
 }
 this.drawGraph = drawGraph;
+
+function drawGraphDebug(graph) {
+	var edges = graph.edges;
+
+	context.strokeStyle = styleColorEdgeSiblingLine;
+	context.lineWidth = styleEdgeLineWidth;
+	for(var i = 0; i < edges.length; ++i) {
+		var leftEdge = edges[i];
+		var rightEdge = leftEdge.rightEdge;
+
+		if(!rightEdge)
+			continue;
+
+		var centerLeftX = leftEdge.getCenterX();
+		var centerLeftY = leftEdge.getCenterY();
+		var centerRightX = rightEdge.getCenterX();
+		var centerRightY = rightEdge.getCenterY();
+
+		var centerX = (centerLeftX + centerRightX) * 0.5;
+		var centerY = (centerLeftY + centerRightY) * 0.5;
+
+		var leftDirX = leftEdge.vertexB.positionX - centerX;
+		var leftDirY = leftEdge.vertexB.positionY - centerY;
+		var leftDirLength = length(leftDirX, leftDirY);
+		leftDirX /= leftDirLength;
+		leftDirY /= leftDirLength;
+		var rightDirX = rightEdge.vertexB.positionX - centerX;
+		var rightDirY = rightEdge.vertexB.positionY - centerY;
+		var rightDirLength = length(rightDirX, rightDirY);
+		rightDirX /= rightDirLength;
+		rightDirY /= rightDirLength;
+
+		drawArrow(centerX, centerY, leftDirX, leftDirY);
+		drawArrow(centerX, centerY, rightDirX, rightDirY);
+	}
+}
+this.drawGraphDebug = drawGraphDebug;
 
 function drawBorder(edge, borderType, k) {
 	var vertexA = edge.vertexA;
@@ -345,7 +369,42 @@ function lerp(a, b, t) {
 	return a + (b - a) * t;
 }
 
-function drawArrow(x, y, dirX, dirY, style) {
+function drawArrow(x, y, dirX, dirY) {
+	var rightX = -dirY * styleArrowSide;
+	var rightY = dirX * styleArrowSide;
+	dirX *= styleArrowLength;
+	dirY *= styleArrowLength;
+	context.beginPath();
+	context.moveTo(x, y);
+	context.lineTo(x + dirX * 2, y + dirY * 2);
+	context.stroke();
+	context.beginPath();
+	context.moveTo(x - rightX + dirX, y - rightY + dirY);
+	context.lineTo(x + dirX * 2, y + dirY * 2);
+	context.lineTo(x + rightX + dirX, y + rightY + dirY);
+	context.stroke();
+}
+
+function drawEdgeSelection(edge) {
+	var vertexA = edge.vertexA;
+	var vertexB = edge.vertexB;
+
+	context.strokeStyle = styleColorEdgeSelection;
+	context.lineWidth = styleEdgeLineWidth;
+	context.beginPath();
+	context.moveTo(vertexA.positionX, vertexA.positionY);
+	context.bezierCurveTo(
+		vertexA.positionX + vertexA.directionX * edge.bezierLengthA,
+		vertexA.positionY + vertexA.directionY * edge.bezierLengthA,
+		vertexB.positionX + vertexB.directionX * edge.bezierLengthB,
+		vertexB.positionY + vertexB.directionY * edge.bezierLengthB,
+		vertexB.positionX, vertexB.positionY);
+	context.stroke();
+}
+this.drawEdgeSelection = drawEdgeSelection;
+
+function length(x, y) {
+	return Math.sqrt(x * x + y * y);
 }
 
 }
