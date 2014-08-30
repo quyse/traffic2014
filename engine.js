@@ -139,6 +139,12 @@ Graph.prototype.getEdgeIndex = function(edge) {
 			return i;
 	throw "no such edge";
 };
+Graph.prototype.addVertex = function(vertex) {
+	this.vertices.push(vertex);
+};
+Graph.prototype.addEdge = function(edge) {
+	this.edges.push(edge);
+};
 Graph.prototype.update = function() {
 	for(var i = 0; i < this.edges.length; ++i)
 		this.edges[i].updatePoints();

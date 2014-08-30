@@ -3,32 +3,40 @@
 	<head>
 		<title>Traffic Editor</title>
 		<link href="jquery-ui/jquery-ui.min.css" rel="stylesheet">
+		<link href="jquery-ui/jquery-ui.structure.min.css" rel="stylesheet">
+		<link href="jquery-ui/jquery-ui.theme.min.css" rel="stylesheet">
 		<script type="text/javascript" src="jquery-2.1.1.min.js"></script>
 		<script type="text/javascript" src="jquery-ui/jquery-ui.min.js"></script>
 		<script type="text/javascript" src="engine.js"></script>
 		<style>
-			body {
-				font-family: sans-serif;
-			}
 			#toolsContainer {
 				position: absolute;
 				left: 0;
 				top: 0;
 				width: 300px;
 				bottom: 0;
+				border-right: 1px solid black;
 			}
-			#canvasContainer {
+			#canvasContainerContainer {
 				position: absolute;
 				left: 300px;
 				top: 0;
 				right: 0;
 				bottom: 0;
-				overflow: scroll;
+				margin: 0;
+				padding: 0;
+				overflow: hidden;
+			}
+			#canvasContainer {
+				position: absolute;
+				left: 0;
+				top: 0;
 				margin: 0;
 				padding: 0;
 			}
 			#canvas {
-				border: 5px solid black;
+				margin: 0;
+				padding: 0;
 			}
 
 			.marker {
@@ -50,9 +58,16 @@
 			<div>
 				<textarea id="text"></textarea>
 			</div>
+			<div id="radioMode">
+				<input type="radio" name="radioMode" id="radioModeNormal" checked="checked" value="normal" /><label for="radioModeNormal">normal mode</label>
+				<input type="radio" name="radioMode" id="radioModeCreateVertex" value="createVertex" /><label for="radioModeCreateVertex">create vertex (RIGHT MOUSE)</label>
+				<input type="radio" name="radioMode" id="radioModeCreateEdge" value="createEdge" /><label for="radioModeCreateEdge">create edge (RIGHT MOUSE)</label>
+			</div>
 		</div>
-		<div id="canvasContainer">
-			<canvas id="canvas" width="2048" height="2048"></canvas>
+		<div id="canvasContainerContainer">
+			<div id="canvasContainer">
+				<canvas id="canvas" width="2048" height="2048"></canvas>
+			</div>
 		</div>
 		<script type="text/javascript">
 			var canvasContainer = $('#canvasContainer');
@@ -63,7 +78,7 @@
 
 			var engine = new Engine(canvas);
 
-			var graph = null;
+			var graph = new Engine.Graph();
 
 			$('#buttonLoadFile').click(function() {
 				var file = $('#file')[0].files[0];
@@ -84,6 +99,10 @@
 				$('#text').val(JSON.stringify(graph.serialize()));
 			});
 
+			$('#canvasContainer').draggable();
+
+			$('#radioMode').buttonset();
+
 			function loadGraph(text) {
 				graph = Engine.Graph.deserialize(JSON.parse(text));
 				loadMarkers();
@@ -95,70 +114,117 @@
 				engine.drawGraph(graph);
 			};
 
-			function Marker(x, y, style, retrieve, onChange) {
-				this.onChange = onChange;
-			};
+			function getMode() {
+				return $('input[name=radioMode]:checked', '#radioMode').val();
+			}
+
+			$(document).ready(function() {
+				document.oncontextmenu = function() { return false; }
+			});
+
+			$('#canvas').mousedown(function(e) {
+				if(getMode() != 'createVertex' || e.button != 2)
+					return;
+
+				var parentOffset = $(this).parent().offset();
+
+				var vertex = new Engine.Vertex();
+				vertex.positionX = e.pageX - parentOffset.left;
+				vertex.positionY = e.pageY - parentOffset.top;
+				vertex.directionX = 0;
+				vertex.directionY = 1;
+				graph.addVertex(vertex);
+				addVertex(vertex);
+			});
+
+			var firstVertexForCreateEdge = null;
+
+			function addVertex(vertex) {
+				// position marker
+				var div = $('<div class="marker vertexMarker' + vertex.id + ' ui-icon ui-icon-radio-on"></div>');
+				div.appendTo(canvasContainer);
+				div.css('left', vertex.positionX - 8);
+				div.css('top', vertex.positionY - 8);
+				div.draggable({
+					drag: function(event, ui) {
+						vertex.positionX = ui.position.left + 8;
+						vertex.positionY = ui.position.top + 8;
+
+						$('.vertexBezierMarker' + vertex.id).map(function() {
+							this.update();
+						});
+
+						graph.update();
+						drawGraph();
+					}
+				});
+				div.mousedown(function(e) {
+					if(getMode() != 'createEdge' || e.button != 2)
+						return;
+
+					if(firstVertexForCreateEdge) {
+						var edge = new Engine.Edge();
+						edge.vertexA = firstVertexForCreateEdge;
+						firstVertexForCreateEdge = null;
+						edge.vertexB = vertex;
+						edge.leftEdge = null;
+						edge.rightEdge = null;
+						edge.bezierLengthA = 10;
+						edge.bezierLengthB = -10;
+						graph.addEdge(edge);
+						edge.updatePoints();
+						addEdge(edge);
+						drawGraph();
+					} else {
+						firstVertexForCreateEdge = vertex;
+					}
+				});
+			}
+
+			function addEdge(edge) {
+				var addMarker = function(vertex, bezierLengthProperty, bezierMult) {
+					var div = $('<div class="marker edgeForwardMarker edgeMarker' + edge.id + ' vertexBezierMarker' + vertex.id + ' ui-icon ui-icon-bullet"></div>');
+					div.appendTo(canvasContainer);
+					div[0].update = function() {
+						div.css('left', vertex.positionX + vertex.directionX * edge[bezierLengthProperty] - 8);
+						div.css('top', vertex.positionY + vertex.directionY * edge[bezierLengthProperty] - 8);
+					};
+					div[0].update();
+					div.draggable({
+						drag: function(event, ui) {
+							var dirX = ui.position.left + 8 - vertex.positionX;
+							var dirY = ui.position.top + 8 - vertex.positionY;
+							var dirLength = Math.sqrt(dirX * dirX + dirY * dirY);
+							dirX /= dirLength;
+							dirY /= dirLength;
+							edge[bezierLengthProperty] = dirLength * bezierMult;
+							vertex.directionX = dirX * bezierMult;
+							vertex.directionY = dirY * bezierMult;
+
+							$('.vertexBezierMarker' + vertex.id).map(function() {
+								this.update();
+							});
+
+							graph.update();
+							drawGraph();
+						}
+					});
+				};
+				// backward marker
+				addMarker(edge.vertexA, 'bezierLengthA', 1);
+				// forward marker
+				addMarker(edge.vertexB, 'bezierLengthB', -1);
+			}
 
 			function loadMarkers() {
 				$('.marker').remove();
 
+				// vertex markers
 				for(var i = 0; i < graph.vertices.length; ++i)
-					(function(vertex) {
-						// position marker
-						var div = $('<div class="marker vertexMarker' + vertex.id + ' ui-icon ui-icon-radio-on"></div>');
-						div.appendTo(canvasContainer);
-						div.css('left', vertex.positionX);
-						div.css('top', vertex.positionY);
-						div.draggable({
-							drag: function(event, ui) {
-								vertex.positionX = ui.position.left;
-								vertex.positionY = ui.position.top;
-
-								$('.vertexBezierMarker' + vertex.id).map(function() {
-									this.update();
-								});
-
-								graph.update();
-								drawGraph();
-							}
-						});
-					})(graph.vertices[i]);
+					addVertex(graph.vertices[i]);
 
 				for(var i = 0; i < graph.edges.length; ++i)
-					(function(edge) {
-						var addMarker = function(vertex, bezierLengthProperty, bezierMult) {
-							var div = $('<div class="marker edgeForwardMarker edgeMarker' + edge.id + ' vertexBezierMarker' + vertex.id + ' ui-icon ui-icon-bullet"></div>');
-							div.appendTo(canvasContainer);
-							div[0].update = function() {
-								div.css('left', vertex.positionX + vertex.directionX * edge[bezierLengthProperty]);
-								div.css('top', vertex.positionY + vertex.directionY * edge[bezierLengthProperty]);
-							};
-							div[0].update();
-							div.draggable({
-								drag: function(event, ui) {
-									var dirX = ui.position.left - vertex.positionX;
-									var dirY = ui.position.top - vertex.positionY;
-									var dirLength = Math.sqrt(dirX * dirX + dirY * dirY);
-									dirX /= dirLength;
-									dirY /= dirLength;
-									edge[bezierLengthProperty] = dirLength * bezierMult;
-									vertex.directionX = dirX * bezierMult;
-									vertex.directionY = dirY * bezierMult;
-
-									$('.vertexBezierMarker' + vertex.id).map(function() {
-										this.update();
-									});
-
-									graph.update();
-									drawGraph();
-								}
-							});
-						};
-						// backward marker
-						addMarker(edge.vertexA, 'bezierLengthA', 1);
-						// forward marker
-						addMarker(edge.vertexB, 'bezierLengthB', -1);
-					})(graph.edges[i]);
+					addEdge(graph.edges[i]);
 			}
 		</script>
 	</body>
