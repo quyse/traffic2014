@@ -54,6 +54,8 @@ function Edge() {
 	this.points = new Float32Array((edgeSegmentsCount + 1) * 3 * 2);
 	// cache for lengths
 	this.lengths = new Float32Array(edgeSegmentsCount + 1);
+	// cars
+	this.cars = [];
 }
 Engine.Edge = Edge;
 Edge.prototype.updatePoints = function() {
@@ -208,6 +210,16 @@ Edge.prototype.getTravel = function(travelIndex, travel) {
 		y: centerY,
 		angle: Math.atan2(tangentY, tangentX)
 	};
+};
+Edge.prototype.addCar = function(car) {
+	this.cars.push(car);
+};
+Edge.prototype.removeCar = function(car) {
+	for(var i = 0; i < this.cars.length; ++i)
+		if(this.cars[i] == car) {
+			this.cars.splice(i, 1);
+			break;
+		}
 };
 
 function Graph() {
@@ -501,27 +513,89 @@ function randomSelect(a) {
 	return a[Math.floor(Math.random() * a.length) % a.length];
 }
 
+var carMaxSpeed = 200;
+var carAcceleration = 40;
+var carBrake = 50;
+var carRadius = 100;
+var carRandomsCount = 5;
+var carFreeDistance = 200;
+var carMaxDepth = 3;
+
 function Car(type) {
 	this.type = type;
 	this.edge = null;
 	this.travel = 0; // position in units on edge
 	this.travelIndex = 0; // index of segment of edge
-	this.speed = 100;
+	this.speed = carMaxSpeed;
 
 	this.div = $('<div class="car car' + type + '"></div>');
+
+	this.randoms = [];
 }
 Engine.Car = Car;
+Car.prototype.updateRandoms = function() {
+	while(this.randoms.length < carRandomsCount)
+		this.randoms.push(Math.floor(Math.random() * 100));
+};
+Car.prototype.getRandom = function(index) {
+	this.updateRandoms();
+	return this.randoms[index];
+};
+Car.prototype.popRandom = function() {
+	this.randoms.splice(0, 1);
+};
+Car.prototype.randomSelect = function(a) {
+	var index = this.getRandom(0);
+	this.popRandom();
+	return a[index % a.length];
+};
+Car.prototype.place = function(edge) {
+	if(this.edge)
+		this.edge.removeCar(this);
+	this.edge = edge;
+	if(this.edge)
+		this.edge.addCar(this);
+};
 Car.prototype.selectNextEdge = function() {
 	var vertex = this.edge.vertexB;
 	if(vertex.outEdges.length <= 0)
 		return null;
-	return randomSelect(vertex.outEdges);
+	return this.randomSelect(vertex.outEdges);
 };
 Car.prototype.destroy = function() {
+	this.place(null);
 	this.div.remove();
 };
-Car.prototype.process = function(world, time) {
+function canGoForward(selfCar, edge, travel, depth) {
+	if(travel < -carFreeDistance || depth >= carRandomsCount)
+		return true;
+
+	// check cars
+	for(var i = 0; i < edge.cars.length; ++i) {
+		var car = edge.cars[i];
+		if(car == selfCar)
+			continue;
+		var distance = car.travel - travel;
+		if(distance >= 0 && distance < carFreeDistance)
+			return false;
+	}
+
 	// go forward
+	if(selfCar && edge.vertexB.outEdges.length > 0) {
+		var forwardTravel = travel - edge.lengths[edgeSegmentsCount];
+		var forwardEdge = edge.vertexB.outEdges[selfCar.getRandom(depth) % edge.vertexB.outEdges.length];
+		if(!canGoForward(selfCar, forwardEdge, forwardTravel, depth + 1))
+			return false;
+	}
+
+	return true;
+}
+Car.prototype.canGoForward = function() {
+	return canGoForward(this, this.edge, this.travel, 0);
+};
+Car.prototype.process = function(world, time) {
+	var isForward = this.canGoForward();
+	this.speed = isForward ? Math.min(this.speed + carAcceleration * time, carMaxSpeed) : Math.max(this.speed - carBrake * time, 0);
 	this.travel += this.speed * time;
 	while(true) {
 		// advance on current edge
@@ -543,7 +617,7 @@ Car.prototype.process = function(world, time) {
 			return;
 		}
 
-		this.edge = nextEdge;
+		this.place(nextEdge);
 
 		// repeat forwarding
 	}
@@ -576,14 +650,19 @@ World.prototype.removeCar = function(car) {
 };
 World.prototype.process = function(time) {
 	// spawn new cars
-	if(Math.random() < 0.01) {
+	if(Math.random() < 0.1) {
 		var vertex = randomSelect(this.sourceVertices);
 		var edge = randomSelect(vertex.outEdges);
-		var carType = randomSelect(this.carTypes);
-		var car = new Car(carType);
-		car.edge = edge;
-		this.cars.push(car);
-		this.div.append(car.div);
+
+		// check if we can place a car
+		if(canGoForward(null, edge, 0, 0)) {
+			var carType = randomSelect(this.carTypes);
+			var car = new Car(carType);
+			car.place(edge);
+
+			this.cars.push(car);
+			this.div.append(car.div);
+		}
 	}
 
 	// advance cars
