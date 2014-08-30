@@ -131,6 +131,12 @@
 			});
 
 			$('#canvasContainer').draggable();
+			$('#canvasContainer').mousedown(function(event) {
+				if(event.button == 2) {
+					selectVertex(null);
+					selectEdge(null);
+				}
+			});
 
 			$('#radioMode').buttonset();
 			$('#radioEdgeBorderLeft').buttonset();
