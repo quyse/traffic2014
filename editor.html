@@ -113,7 +113,7 @@
 			});
 
 			$('#buttonSerialize').click(function() {
-				$('#text').val(JSON.stringify(graph.serialize()));
+				$('#text').val(JSON.stringify(graph.serialize(), null, '\t'));
 			});
 
 			$('#canvasContainer').draggable();
