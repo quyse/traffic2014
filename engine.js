@@ -32,6 +32,10 @@ function Vertex() {
 	// normalized direction
 	this.directionX = 0;
 	this.directionY = 0;
+
+	// cache
+	this.inEdges = [];
+	this.outEdges = [];
 }
 Engine.Vertex = Vertex;
 
@@ -48,6 +52,8 @@ function Edge() {
 
 	// cache for positions (center-right-left)
 	this.points = new Float32Array((edgeSegmentsCount + 1) * 3 * 2);
+	// cache for lengths
+	this.lengths = new Float32Array(edgeSegmentsCount + 1);
 }
 Engine.Edge = Edge;
 Edge.prototype.updatePoints = function() {
@@ -74,6 +80,7 @@ Edge.prototype.updatePoints = function() {
 	var dy = by + bDirY * bLength;
 
 	// calculate path points (A-C-D-B)
+	var sumLength = 0;
 	for(var i = 0; i <= edgeSegmentsCount; ++i) {
 		var t = i / edgeSegmentsCount;
 
@@ -125,6 +132,10 @@ Edge.prototype.updatePoints = function() {
 		// left point
 		this.points[(i * 3 + 2) * 2 + 0] = centerX - rightX;
 		this.points[(i * 3 + 2) * 2 + 1] = centerY - rightY;
+
+		if(i > 0)
+			sumLength += length(centerX - this.points[((i - 1) * 3 + 0) * 2 + 0], centerY - this.points[((i - 1) * 3 + 0) * 2 + 1]);
+		this.lengths[i] = sumLength;
 	}
 };
 Edge.prototype.getCenterX = function() {
@@ -132,6 +143,71 @@ Edge.prototype.getCenterX = function() {
 };
 Edge.prototype.getCenterY = function() {
 	return this.points[(Math.floor(edgeSegmentsCount / 2) * 3 + 0) * 2 + 1];
+};
+Edge.prototype.getTravel = function(travelIndex, travel) {
+	var t = (travelIndex + (travel - this.lengths[travelIndex]) / (this.lengths[travelIndex + 1] - this.lengths[travelIndex])) / edgeSegmentsCount;
+
+	// COPYPASTE >_<
+
+	var vertexA = this.vertexA;
+	var vertexB = this.vertexB;
+
+	var aDirX = vertexA.directionX;
+	var aDirY = vertexA.directionY;
+	var bDirX = vertexB.directionX;
+	var bDirY = vertexB.directionY;
+
+	// calculate bezier points
+	var ax = vertexA.positionX;
+	var ay = vertexA.positionY;
+	var bx = vertexB.positionX;
+	var by = vertexB.positionY;
+
+	var aLength = this.bezierLengthA;
+	var bLength = this.bezierLengthB;
+
+	var cx = ax + aDirX * aLength;
+	var cy = ay + aDirY * aLength;
+	var dx = bx + bDirX * bLength;
+	var dy = by + bDirY * bLength;
+
+	// point
+	var acx = lerp(ax, cx, t);
+	var acy = lerp(ay, cy, t);
+	var cdx = lerp(cx, dx, t);
+	var cdy = lerp(cy, dy, t);
+	var dbx = lerp(dx, bx, t);
+	var dby = lerp(dy, by, t);
+
+	var acdx = lerp(acx, cdx, t);
+	var acdy = lerp(acy, cdy, t);
+	var cdbx = lerp(cdx, dbx, t);
+	var cdby = lerp(cdy, dby, t);
+
+	var centerX = lerp(acdx, cdbx, t);
+	var centerY = lerp(acdy, cdby, t);
+
+	// tangent
+	var acx_ = cx - ax;
+	var acy_ = cy - ay;
+	var cdx_ = dx - cx;
+	var cdy_ = dy - cy;
+	var dbx_ = bx - dx;
+	var dby_ = by - dy;
+
+	var acdx_ = lerp(acx_, cdx_, t);
+	var acdy_ = lerp(acy_, cdy_, t);
+	var cdbx_ = lerp(cdx_, dbx_, t);
+	var cdby_ = lerp(cdy_, dby_, t);
+
+	var tangentX = lerp(acdx_, cdbx_, t);
+	var tangentY = lerp(acdy_, cdby_, t);
+
+	return {
+		x: centerX,
+		y: centerY,
+		angle: Math.atan2(tangentY, tangentX)
+	};
 };
 
 function Graph() {
@@ -174,6 +250,13 @@ Graph.prototype.removeEdge = function(edge) {
 Graph.prototype.update = function() {
 	for(var i = 0; i < this.edges.length; ++i)
 		this.edges[i].updatePoints();
+};
+Graph.prototype.updateInOutEdges = function() {
+	for(var i = 0; i < this.edges.length; ++i) {
+		var edge = this.edges[i];
+		edge.vertexA.outEdges.push(edge);
+		edge.vertexB.inEdges.push(edge);
+	}
 };
 Graph.prototype.serialize = function() {
 	var self = this;
@@ -413,5 +496,100 @@ this.drawEdgeSelection = drawEdgeSelection;
 function length(x, y) {
 	return Math.sqrt(x * x + y * y);
 }
+
+function randomSelect(a) {
+	return a[Math.floor(Math.random() * a.length) % a.length];
+}
+
+function Car(type) {
+	this.type = type;
+	this.edge = null;
+	this.travel = 0; // position in units on edge
+	this.travelIndex = 0; // index of segment of edge
+	this.speed = 100;
+
+	this.div = $('<div class="car car' + type + '"></div>');
+}
+Engine.Car = Car;
+Car.prototype.selectNextEdge = function() {
+	var vertex = this.edge.vertexB;
+	if(vertex.outEdges.length <= 0)
+		return null;
+	return randomSelect(vertex.outEdges);
+};
+Car.prototype.destroy = function() {
+	this.div.remove();
+};
+Car.prototype.process = function(world, time) {
+	// go forward
+	this.travel += this.speed * time;
+	while(true) {
+		// advance on current edge
+		while(this.travelIndex < edgeSegmentsCount && this.travel >= this.edge.lengths[this.travelIndex + 1])
+			++this.travelIndex;
+
+		// if current edge has not been passed
+		if(this.travelIndex < edgeSegmentsCount)
+			break;
+
+		this.travelIndex = 0;
+		this.travel -= this.edge.lengths[edgeSegmentsCount];
+
+		// select one of the edges
+		var nextEdge = this.selectNextEdge();
+		// if there is no next edge, destroy
+		if(!nextEdge) {
+			world.removeCar(this);
+			return;
+		}
+
+		this.edge = nextEdge;
+
+		// repeat forwarding
+	}
+
+	// update position
+	var o = this.edge.getTravel(this.travelIndex, this.travel);
+	this.div.css({
+		transform: 'rotate(' + o.angle + 'rad)',
+		left: o.x - 75,
+		top: o.y - 75
+	});
+};
+
+function World(graph, div, carTypes) {
+	this.div = div;
+	this.carTypes = carTypes;
+	this.cars = [];
+	this.sourceVertices = [];
+	for(var i = 0; i < graph.vertices.length; ++i)
+		if(graph.vertices[i].inEdges.length <= 0 && graph.vertices[i].outEdges.length > 0)
+			this.sourceVertices.push(graph.vertices[i]);
+}
+World.prototype.removeCar = function(car) {
+	for(var i = 0; i < this.cars.length; ++i)
+		if(this.cars[i] == car) {
+			this.cars.splice(i, 1);
+			car.destroy();
+			break;
+		}
+};
+World.prototype.process = function(time) {
+	// spawn new cars
+	if(Math.random() < 0.01) {
+		var vertex = randomSelect(this.sourceVertices);
+		var edge = randomSelect(vertex.outEdges);
+		var carType = randomSelect(this.carTypes);
+		var car = new Car(carType);
+		car.edge = edge;
+		this.cars.push(car);
+		this.div.append(car.div);
+	}
+
+	// advance cars
+	for(var i = 0; i < this.cars.length; ++i)
+		this.cars[i].process(this, time);
+};
+Engine.World = World;
 
 }
