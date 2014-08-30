@@ -80,6 +80,7 @@
 			<div>
 				<h2>Edge</h2>
 				<input type="button" id="buttonDeleteEdge" value="delete" />
+				<input type="button" id="buttonClearFirstEdge" value="clear first" />
 				<h3>left border</h3>
 				<div id="radioEdgeBorderLeft">
 					<input type="radio" name="radioEdgeBorderLeft" id="radioEdgeBorderLeftNone" value="none" /><label for="radioEdgeBorderLeftNone">none</label>
@@ -157,6 +158,9 @@
 			function drawGraph() {
 				context.clearRect(0, 0, canvasWidth, canvasHeight);
 				engine.drawGraph(graph);
+				engine.drawGraphDebug(graph);
+				if(selectedEdge)
+					engine.drawEdgeSelection(selectedEdge);
 			};
 
 			function getMode() {
@@ -164,7 +168,8 @@
 			}
 
 			$(document).ready(function() {
-				if(window.location.hash.indexOf("allowrightbutton") < 0)
+				var hash = window.location.hash;
+				if(hash.indexOf("allowrightbutton") < 0)
 					document.oncontextmenu = function() { return false; }
 			});
 
@@ -195,9 +200,6 @@
 				div.appendTo(canvasContainer);
 				div.css('left', vertex.positionX - 8);
 				div.css('top', vertex.positionY - 8);
-				div.mousedown(function(e) {
-					selectVertex(vertex);
-				});
 				div.draggable({
 					drag: function(event, ui) {
 						vertex.positionX = ui.position.left + 8;
@@ -206,12 +208,17 @@
 						$('.vertexBezierMarker' + vertex.id).map(function() {
 							this.update();
 						});
+						$('.edgeCenterMarker').map(function() {
+							this.update();
+						});
 
 						graph.update();
 						drawGraph();
 					}
 				});
 				div.mousedown(function(e) {
+					selectVertex(vertex);
+
 					if(getMode() != 'createEdge' || e.button != 2)
 						return;
 
@@ -234,18 +241,37 @@
 				});
 			}
 
+			var firstEdgeForSiblingEdge = null;
+
+			$('#buttonClearFirstEdge').click(function() {
+				firstEdgeForSiblingEdge = null;
+			});
+
 			function addEdge(edge) {
-				var addMarker = function(vertex, bezierLengthProperty, bezierMult) {
-					var div = $('<div class="marker edgeMarker edgeForwardMarker edgeMarker' + edge.id + ' vertexBezierMarker' + vertex.id + ' ui-icon ui-icon-bullet"></div>');
+				function onMouseDown(e) {
+					selectEdge(edge);
+
+					if(getMode() != 'siblingEdge' || e.button != 2)
+						return;
+
+					if(firstEdgeForSiblingEdge) {
+						firstEdgeForSiblingEdge.rightEdge = edge;
+						edge.leftEdge = firstEdgeForSiblingEdge;
+						firstEdgeForSiblingEdge = null;
+						drawGraph();
+					} else {
+						firstEdgeForSiblingEdge = edge;
+					}
+				}
+
+				function addMarker(vertex, bezierLengthProperty, bezierMult) {
+					var div = $('<div class="marker edgeMarker edgeMarker' + edge.id + ' vertexBezierMarker' + vertex.id + ' ui-icon ui-icon-bullet"></div>');
 					div.appendTo(canvasContainer);
 					div[0].update = function() {
 						div.css('left', vertex.positionX + vertex.directionX * edge[bezierLengthProperty] - 8);
 						div.css('top', vertex.positionY + vertex.directionY * edge[bezierLengthProperty] - 8);
 					};
 					div[0].update();
-					div.mousedown(function(e) {
-						selectEdge(edge);
-					});
 					div.draggable({
 						drag: function(event, ui) {
 							var dirX = ui.position.left + 8 - vertex.positionX;
@@ -260,16 +286,32 @@
 							$('.vertexBezierMarker' + vertex.id).map(function() {
 								this.update();
 							});
+							$('.edgeCenterMarker' + edge.id).map(function() {
+								this.update();
+							});
 
 							graph.update();
 							drawGraph();
 						}
 					});
-				};
+					div.mousedown(onMouseDown);
+				}
 				// backward marker
 				addMarker(edge.vertexA, 'bezierLengthA', 1);
 				// forward marker
 				addMarker(edge.vertexB, 'bezierLengthB', -1);
+
+				// edge center marker
+				(function() {
+					var div = $('<div class="marker edgeMarker edgeMarker' + edge.id + ' edgeCenterMarker edgeCenterMarker' + edge.id + ' ui-icon ui-icon-plusthick"></div>');
+					div.appendTo(canvasContainer);
+					div[0].update = function() {
+						div.css('left', edge.getCenterX() - 8);
+						div.css('top', edge.getCenterY() - 8);
+					};
+					div[0].update();
+					div.mousedown(onMouseDown);
+				})();
 			}
 
 			function loadMarkers() {
@@ -305,6 +347,7 @@
 					$('input[name=radioEdgeBorderRight][value=' + (selectedEdge.rightBorder || 'none') + ']').prop('checked', true);
 					$('#radioEdgeBorderRight').buttonset("refresh");
 				}
+				drawGraph();
 			}
 
 			function removeVertex(vertex) {
@@ -324,6 +367,12 @@
 			});
 
 			function removeEdge(edge) {
+				for(var i = 0; i < graph.edges.length; ++i) {
+					if(graph.edges[i].leftEdge == edge)
+						graph.edges[i].leftEdge = null;
+					if(graph.edges[i].rightEdge == edge)
+						graph.edges[i].rightEdge = null;
+				}
 				graph.removeEdge(edge);
 				$('.edgeMarker' + edge.id).remove();
 				if(selectedEdge && selectedEdge.id == edge.id)
