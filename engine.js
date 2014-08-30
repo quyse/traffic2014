@@ -13,6 +13,8 @@ var edgeSegmentsCount = 10;
 var styleColorEdgeBase = "#555";
 var styleColorEdgeLine = "#fff";
 var styleEdgeLineWidth = 3;
+var styleEdgeArrowLength = 10;
+var styleEdgeArrowSide = 5;
 
 // counters for ids
 var vertexId = 0;
@@ -213,6 +215,42 @@ function drawGraph(graph) {
 			vertexB.positionY + vertexB.directionY * edge.bezierLengthB,
 			vertexB.positionX, vertexB.positionY);
 		context.stroke();
+
+		// draw arrow
+		context.strokeStyle = styleColorEdgeLine;
+		context.lineWidth = styleEdgeLineWidth;
+		var arrowDirX = vertexB.positionX - vertexA.positionX;
+		var arrowDirY = vertexB.positionY - vertexA.positionY;
+		var arrowDirLength = Math.sqrt(arrowDirX * arrowDirX + arrowDirY * arrowDirY);
+		arrowDirX /= arrowDirLength;
+		arrowDirY /= arrowDirLength;
+		var arrowRightX = -arrowDirY * styleEdgeArrowSide;
+		var arrowRightY = arrowDirX * styleEdgeArrowSide;
+		arrowDirX *= styleEdgeArrowLength;
+		arrowDirY *= styleEdgeArrowLength;
+		var arrowPosX = points[(Math.floor(edgeSegmentsCount / 2) * 3 + 0) * 2 + 0];
+		var arrowPosY = points[(Math.floor(edgeSegmentsCount / 2) * 3 + 0) * 2 + 1];
+		context.beginPath();
+		context.moveTo(arrowPosX - arrowDirX, arrowPosY - arrowDirY);
+		context.lineTo(arrowPosX + arrowDirX, arrowPosY + arrowDirY);
+		context.stroke();
+		context.beginPath();
+		context.moveTo(arrowPosX - arrowRightX, arrowPosY - arrowRightY);
+		context.lineTo(arrowPosX + arrowDirX, arrowPosY + arrowDirY);
+		context.lineTo(arrowPosX + arrowRightX, arrowPosY + arrowRightY);
+		context.stroke();
+
+		// TEST circles
+		if(0) {
+		context.fillStyle = "#000";
+		for(var j = 0; j <= edgeSegmentsCount; ++j) {
+			for(var k = 0; k < 3; ++k) {
+				context.beginPath();
+				context.arc(points[(j * 3 + k) * 2 + 0], points[(j * 3 + k) * 2 + 1], 3, 0, Math.PI * 2);
+				context.fill();
+			}
+		}
+		}
 	}
 }
 this.drawGraph = drawGraph;
