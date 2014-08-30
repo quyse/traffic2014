@@ -39,6 +39,8 @@ function Edge() {
 	this.rightEdge = null;
 	this.bezierLengthA = 0;
 	this.bezierLengthB = 0;
+	this.leftBorder = "none"; // "none", "dash", "solid"
+	this.rightBorder = "none";
 
 	// cache for positions (center-right-left)
 	this.points = new Float32Array((edgeSegmentsCount + 1) * 3 * 2);
@@ -181,7 +183,9 @@ Graph.prototype.serialize = function() {
 				l: edge.leftEdge ? self.getEdgeIndex(edge.leftEdge) : -1,
 				r: edge.rightEdge ? self.getEdgeIndex(edge.rightEdge) : -1,
 				al: edge.bezierLengthA,
-				bl: edge.bezierLengthB
+				bl: edge.bezierLengthB,
+				borl: edge.leftBorder,
+				borr: edge.rightBorder
 			};
 		})
 	};
@@ -202,6 +206,8 @@ Graph.deserialize = function(o) {
 		edge.vertexB = graph.vertices[e.b];
 		edge.bezierLengthA = e.al;
 		edge.bezierLengthB = e.bl;
+		edge.leftBorder = e.borl || "none";
+		edge.rightBorder = e.borr || "none";
 		return edge;
 	});
 	for(var i = 0; i < o.edges.length; ++i) {

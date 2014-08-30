@@ -70,6 +70,7 @@
 				<input type="radio" name="radioMode" id="radioModeNormal" checked="checked" value="normal" /><label for="radioModeNormal">normal mode</label>
 				<input type="radio" name="radioMode" id="radioModeCreateVertex" value="createVertex" /><label for="radioModeCreateVertex">create vertex (RIGHT MOUSE)</label>
 				<input type="radio" name="radioMode" id="radioModeCreateEdge" value="createEdge" /><label for="radioModeCreateEdge">create edge (RIGHT MOUSE)</label>
+				<input type="radio" name="radioMode" id="radioModeSiblingEdge" value="siblingEdge" /><label for="radioModeSiblingEdge">LEFT-RIGHT sibling edge (RIGHT MOUSE)</label>
 			</div>
 			<div>
 				<h2>Vertex</h2>
@@ -79,6 +80,18 @@
 			<div>
 				<h2>Edge</h2>
 				<input type="button" id="buttonDeleteEdge" value="delete" />
+				<h3>left border</h3>
+				<div id="radioEdgeBorderLeft">
+					<input type="radio" name="radioEdgeBorderLeft" id="radioEdgeBorderLeftNone" value="none" /><label for="radioEdgeBorderLeftNone">none</label>
+					<input type="radio" name="radioEdgeBorderLeft" id="radioEdgeBorderLeftDash" value="dash" /><label for="radioEdgeBorderLeftDash">dash</label>
+					<input type="radio" name="radioEdgeBorderLeft" id="radioEdgeBorderLeftSolid" value="solid" /><label for="radioEdgeBorderLeftSolid">solid</label>
+				</div>
+				<h3>right border</h3>
+				<div id="radioEdgeBorderRight">
+					<input type="radio" name="radioEdgeBorderRight" id="radioEdgeBorderRightNone" value="none" /><label for="radioEdgeBorderRightNone">none</label>
+					<input type="radio" name="radioEdgeBorderRight" id="radioEdgeBorderRightDash" value="dash" /><label for="radioEdgeBorderRightDash">dash</label>
+					<input type="radio" name="radioEdgeBorderRight" id="radioEdgeBorderRightSolid" value="solid" /><label for="radioEdgeBorderRightSolid">solid</label>
+				</div>
 			</div>
 		</div>
 		<div id="canvasContainerContainer">
@@ -119,6 +132,21 @@
 			$('#canvasContainer').draggable();
 
 			$('#radioMode').buttonset();
+			$('#radioEdgeBorderLeft').buttonset();
+			$('#radioEdgeBorderRight').buttonset();
+
+			$('input[name=radioEdgeBorderLeft]', '#radioEdgeBorderLeft').click(function() {
+				if(selectedEdge) {
+					selectedEdge.leftBorder = $('input[name=radioEdgeBorderLeft]:checked', '#radioEdgeBorderLeft').val();
+					drawGraph();
+				}
+			});
+			$('input[name=radioEdgeBorderRight]', '#radioEdgeBorderRight').click(function() {
+				if(selectedEdge) {
+					selectedEdge.rightBorder = $('input[name=radioEdgeBorderRight]:checked', '#radioEdgeBorderRight').val();
+					drawGraph();
+				}
+			});
 
 			function loadGraph(text) {
 				graph = Engine.Graph.deserialize(JSON.parse(text));
@@ -136,7 +164,8 @@
 			}
 
 			$(document).ready(function() {
-				document.oncontextmenu = function() { return false; }
+				if(window.location.hash.indexOf("allowrightbutton") < 0)
+					document.oncontextmenu = function() { return false; }
 			});
 
 			$('#canvas').mousedown(function(e) {
@@ -268,8 +297,14 @@
 				if(selectedEdge)
 					$('.edgeMarker').removeClass('selected');
 				selectedEdge = edge;
-				if(selectedEdge)
+				if(selectedEdge) {
 					$('.edgeMarker' + edge.id).addClass('selected');
+
+					$('input[name=radioEdgeBorderLeft][value=' + (selectedEdge.leftBorder || 'none') + ']').prop('checked', true);
+					$('#radioEdgeBorderLeft').buttonset("refresh");
+					$('input[name=radioEdgeBorderRight][value=' + (selectedEdge.rightBorder || 'none') + ']').prop('checked', true);
+					$('#radioEdgeBorderRight').buttonset("refresh");
+				}
 			}
 
 			function removeVertex(vertex) {
