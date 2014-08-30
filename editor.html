@@ -26,6 +26,7 @@
 				margin: 0;
 				padding: 0;
 				overflow: hidden;
+				background-color: #f00;
 			}
 			#canvasContainer {
 				position: absolute;
@@ -33,6 +34,7 @@
 				top: 0;
 				margin: 0;
 				padding: 0;
+				background-color: #fff;
 			}
 			#canvas {
 				margin: 0;
@@ -41,6 +43,12 @@
 
 			.marker {
 				position: absolute;
+			}
+			.vertexMarker.selected {
+				background-color: #f00;
+			}
+			.edgeMarker.selected {
+				background-color: #0f0;
 			}
 		</style>
 	</head>
@@ -63,10 +71,19 @@
 				<input type="radio" name="radioMode" id="radioModeCreateVertex" value="createVertex" /><label for="radioModeCreateVertex">create vertex (RIGHT MOUSE)</label>
 				<input type="radio" name="radioMode" id="radioModeCreateEdge" value="createEdge" /><label for="radioModeCreateEdge">create edge (RIGHT MOUSE)</label>
 			</div>
+			<div>
+				<h2>Vertex</h2>
+				<input type="button" id="buttonDeleteVertex" value="delete" />
+				<input type="button" id="buttonClearFirstVertex" value="clear first" />
+			</div>
+			<div>
+				<h2>Edge</h2>
+				<input type="button" id="buttonDeleteEdge" value="delete" />
+			</div>
 		</div>
 		<div id="canvasContainerContainer">
 			<div id="canvasContainer">
-				<canvas id="canvas" width="2048" height="2048"></canvas>
+				<canvas id="canvas" width="4096" height="4096"></canvas>
 			</div>
 		</div>
 		<script type="text/javascript">
@@ -139,12 +156,19 @@
 
 			var firstVertexForCreateEdge = null;
 
+			$('#buttonClearFirstVertex').click(function() {
+				firstVertexForCreateEdge = null;
+			});
+
 			function addVertex(vertex) {
 				// position marker
-				var div = $('<div class="marker vertexMarker' + vertex.id + ' ui-icon ui-icon-radio-on"></div>');
+				var div = $('<div class="marker vertexMarker vertexMarker' + vertex.id + ' ui-icon ui-icon-radio-on"></div>');
 				div.appendTo(canvasContainer);
 				div.css('left', vertex.positionX - 8);
 				div.css('top', vertex.positionY - 8);
+				div.mousedown(function(e) {
+					selectVertex(vertex);
+				});
 				div.draggable({
 					drag: function(event, ui) {
 						vertex.positionX = ui.position.left + 8;
@@ -169,8 +193,8 @@
 						edge.vertexB = vertex;
 						edge.leftEdge = null;
 						edge.rightEdge = null;
-						edge.bezierLengthA = 10;
-						edge.bezierLengthB = -10;
+						edge.bezierLengthA = 50;
+						edge.bezierLengthB = -50;
 						graph.addEdge(edge);
 						edge.updatePoints();
 						addEdge(edge);
@@ -183,13 +207,16 @@
 
 			function addEdge(edge) {
 				var addMarker = function(vertex, bezierLengthProperty, bezierMult) {
-					var div = $('<div class="marker edgeForwardMarker edgeMarker' + edge.id + ' vertexBezierMarker' + vertex.id + ' ui-icon ui-icon-bullet"></div>');
+					var div = $('<div class="marker edgeMarker edgeForwardMarker edgeMarker' + edge.id + ' vertexBezierMarker' + vertex.id + ' ui-icon ui-icon-bullet"></div>');
 					div.appendTo(canvasContainer);
 					div[0].update = function() {
 						div.css('left', vertex.positionX + vertex.directionX * edge[bezierLengthProperty] - 8);
 						div.css('top', vertex.positionY + vertex.directionY * edge[bezierLengthProperty] - 8);
 					};
 					div[0].update();
+					div.mousedown(function(e) {
+						selectEdge(edge);
+					});
 					div.draggable({
 						drag: function(event, ui) {
 							var dirX = ui.position.left + 8 - vertex.positionX;
@@ -226,6 +253,53 @@
 				for(var i = 0; i < graph.edges.length; ++i)
 					addEdge(graph.edges[i]);
 			}
+
+			var selectedVertex = null;
+			function selectVertex(vertex) {
+				if(selectedVertex)
+					$('.vertexMarker').removeClass('selected');
+				selectedVertex = vertex;
+				if(selectedVertex)
+					$('.vertexMarker' + selectedVertex.id).addClass('selected');
+			}
+
+			var selectedEdge = null;
+			function selectEdge(edge) {
+				if(selectedEdge)
+					$('.edgeMarker').removeClass('selected');
+				selectedEdge = edge;
+				if(selectedEdge)
+					$('.edgeMarker' + edge.id).addClass('selected');
+			}
+
+			function removeVertex(vertex) {
+				for(var i = 0; i < graph.edges.length; ++i)
+					if(graph.edges[i].vertexA.id == vertex.id || graph.edges[i].vertexB.id == vertex.id)
+						removeEdge(graph.edges[i--]);
+				graph.removeVertex(vertex);
+				$('.vertexMarker' + vertex.id).remove();
+				if(selectedVertex && selectedVertex.id == vertex.id)
+					selectVertex(null);
+			}
+			$('#buttonDeleteVertex').click(function() {
+				if(selectedVertex) {
+					removeVertex(selectedVertex);
+					drawGraph();
+				}
+			});
+
+			function removeEdge(edge) {
+				graph.removeEdge(edge);
+				$('.edgeMarker' + edge.id).remove();
+				if(selectedEdge && selectedEdge.id == edge.id)
+					selectEdge(null);
+			}
+			$('#buttonDeleteEdge').click(function() {
+				if(selectedEdge) {
+					removeEdge(selectedEdge);
+					drawGraph();
+				}
+			});
 		</script>
 	</body>
 </html>

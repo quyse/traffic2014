@@ -142,8 +142,22 @@ Graph.prototype.getEdgeIndex = function(edge) {
 Graph.prototype.addVertex = function(vertex) {
 	this.vertices.push(vertex);
 };
+Graph.prototype.removeVertex = function(vertex) {
+	for(var i = 0; i < this.vertices.length; ++i)
+		if(this.vertices[i].id == vertex.id) {
+			this.vertices.splice(i, 1);
+			break;
+		}
+};
 Graph.prototype.addEdge = function(edge) {
 	this.edges.push(edge);
+};
+Graph.prototype.removeEdge = function(edge) {
+	for(var i = 0; i < this.edges.length; ++i)
+		if(this.edges[i].id == edge.id) {
+			this.edges.splice(i, 1);
+			break;
+		}
 };
 Graph.prototype.update = function() {
 	for(var i = 0; i < this.edges.length; ++i)
@@ -212,14 +226,24 @@ function drawGraph(graph) {
 		// make path
 		context.strokeStyle = styleColorEdgeBase;
 		context.lineWidth = edgeHalfWidth * 2;
+		var correctionAX = vertexA.directionX;
+		var correctionAY = vertexA.directionY;
+		var correctionLength = Math.sqrt(correctionAX * correctionAX + correctionAY * correctionAY);
+		correctionAX /= correctionLength;
+		correctionAY /= correctionLength;
+		var correctionBX = vertexB.directionX;
+		var correctionBY = vertexB.directionY;
+		var correctionLength = Math.sqrt(correctionBX * correctionBX + correctionBY * correctionBY);
+		correctionBX /= correctionLength;
+		correctionBY /= correctionLength;
 		context.beginPath();
-		context.moveTo(vertexA.positionX, vertexA.positionY);
+		context.moveTo(vertexA.positionX - correctionAX, vertexA.positionY - correctionAY);
 		context.bezierCurveTo(
 			vertexA.positionX + vertexA.directionX * edge.bezierLengthA,
 			vertexA.positionY + vertexA.directionY * edge.bezierLengthA,
 			vertexB.positionX + vertexB.directionX * edge.bezierLengthB,
 			vertexB.positionY + vertexB.directionY * edge.bezierLengthB,
-			vertexB.positionX, vertexB.positionY);
+			vertexB.positionX + correctionBX, vertexB.positionY + correctionBY);
 		context.stroke();
 
 		// draw arrow
@@ -263,6 +287,9 @@ this.drawGraph = drawGraph;
 
 function lerp(a, b, t) {
 	return a + (b - a) * t;
+}
+
+function drawArrow(x, y, dirX, dirY, style) {
 }
 
 }
