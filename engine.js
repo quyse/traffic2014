@@ -551,7 +551,7 @@ Car.prototype.process = function(world, time) {
 	// update position
 	var o = this.edge.getTravel(this.travelIndex, this.travel);
 	this.div.css({
-		transform: 'rotate(' + o.angle + 'rad)',
+		transform: 'rotate(' + (o.angle + Math.PI) + 'rad)',
 		left: o.x - 75,
 		top: o.y - 25
 	});
