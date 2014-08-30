@@ -208,7 +208,7 @@
 						$('.vertexBezierMarker' + vertex.id).map(function() {
 							this.update();
 						});
-						$('.edgeCenterMarker').map(function() {
+						$('.edgeCenterMarkerVertex' + vertex.id).map(function() {
 							this.update();
 						});
 
@@ -303,7 +303,7 @@
 
 				// edge center marker
 				(function() {
-					var div = $('<div class="marker edgeMarker edgeMarker' + edge.id + ' edgeCenterMarker edgeCenterMarker' + edge.id + ' ui-icon ui-icon-plusthick"></div>');
+					var div = $('<div class="marker edgeMarker edgeMarker' + edge.id + ' edgeCenterMarker' + edge.id + ' edgeCenterMarkerVertex' + edge.vertexA.id + ' edgeCenterMarkerVertex' + edge.vertexB.id + ' ui-icon ui-icon-plusthick"></div>');
 					div.appendTo(canvasContainer);
 					div[0].update = function() {
 						div.css('left', edge.getCenterX() - 8);
