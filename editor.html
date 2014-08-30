@@ -155,12 +155,20 @@
 				drawGraph();
 			}
 
+			var needDraw = false;
 			function drawGraph() {
-				context.clearRect(0, 0, canvasWidth, canvasHeight);
-				engine.drawGraph(graph);
-				engine.drawGraphDebug(graph);
-				if(selectedEdge)
-					engine.drawEdgeSelection(selectedEdge);
+				setTimeout(function() {
+					if(!needDraw)
+						return;
+					needDraw = false;
+
+					context.clearRect(0, 0, canvasWidth, canvasHeight);
+					engine.drawGraph(graph);
+					engine.drawGraphDebug(graph);
+					if(selectedEdge)
+						engine.drawEdgeSelection(selectedEdge);
+				});
+				needDraw = true;
 			};
 
 			function getMode() {
