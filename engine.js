@@ -7,7 +7,11 @@ var context = canvas.getContext('2d');
 // width of edge in pixels
 var edgeHalfWidth = 25;
 // number of segments to draw edge
-var edgeSegmentsCount = 5;
+var edgeSegmentsCount = 10;
+
+// colors
+var styleColorEdgeBase = "#555";
+var styleColorEdgeLine = "#fff";
 
 // counters for ids
 var vertexId = 0;
@@ -191,6 +195,7 @@ function drawGraph(graph) {
 		var points = edge.points;
 
 		// make path
+		context.fillStyle = styleColorEdgeBase;
 		context.beginPath();
 		context.moveTo(points[(0 * 3 + 2) * 2 + 0], points[(0 * 3 + 2) * 2 + 1]);
 		for(var j = 1; j <= edgeSegmentsCount; ++j)
