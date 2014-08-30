@@ -12,9 +12,11 @@ var edgeSegmentsCount = 10;
 // colors
 var styleColorEdgeBase = "#555";
 var styleColorEdgeLine = "#fff";
-var styleEdgeLineWidth = 3;
+var styleEdgeLineWidth = 2;
 var styleEdgeArrowLength = 10;
 var styleEdgeArrowSide = 5;
+var styleEdgeBorderDash = [10];
+var styleEdgeBorderSolid = [];
 
 // counters for ids
 var vertexId = 0;
@@ -223,15 +225,14 @@ Graph.deserialize = function(o) {
 function drawGraph(graph) {
 	var edges = graph.edges;
 
+	// draw roads
+	context.strokeStyle = styleColorEdgeBase;
+	context.lineWidth = edgeHalfWidth * 2;
 	for(var i = 0; i < edges.length; ++i) {
 		var edge = edges[i];
 		var vertexA = edge.vertexA;
 		var vertexB = edge.vertexB;
-		var points = edge.points;
 
-		// make path
-		context.strokeStyle = styleColorEdgeBase;
-		context.lineWidth = edgeHalfWidth * 2;
 		var correctionAX = vertexA.directionX;
 		var correctionAY = vertexA.directionY;
 		var correctionLength = Math.sqrt(correctionAX * correctionAX + correctionAY * correctionAY);
@@ -251,10 +252,30 @@ function drawGraph(graph) {
 			vertexB.positionY + vertexB.directionY * edge.bezierLengthB,
 			vertexB.positionX + correctionBX, vertexB.positionY + correctionBY);
 		context.stroke();
+	}
 
-		// draw arrow
-		context.strokeStyle = styleColorEdgeLine;
-		context.lineWidth = styleEdgeLineWidth;
+	// draw borders
+	context.strokeStyle = styleColorEdgeLine;
+	context.lineWidth = styleEdgeLineWidth;
+	for(var i = 0; i < edges.length; ++i) {
+		var edge = edges[i];
+
+		// right border
+		drawBorder(edge, edge.rightBorder, 1);
+		// left border
+		drawBorder(edge, edge.leftBorder, 2);
+	}
+	context.setLineDash(styleEdgeBorderSolid);
+
+	// draw arrows
+	context.strokeStyle = styleColorEdgeLine;
+	context.lineWidth = styleEdgeLineWidth;
+	for(var i = 0; i < edges.length; ++i) {
+		var edge = edges[i];
+		var vertexA = edge.vertexA;
+		var vertexB = edge.vertexB;
+		var points = edge.points;
+
 		var arrowDirX = vertexB.positionX - vertexA.positionX;
 		var arrowDirY = vertexB.positionY - vertexA.positionY;
 		var arrowDirLength = Math.sqrt(arrowDirX * arrowDirX + arrowDirY * arrowDirY);
@@ -290,6 +311,35 @@ function drawGraph(graph) {
 	}
 }
 this.drawGraph = drawGraph;
+
+function drawBorder(edge, borderType, k) {
+	var vertexA = edge.vertexA;
+	var vertexB = edge.vertexB;
+	var points = edge.points;
+
+	switch(borderType) {
+	case 'none': return;
+	case 'dash':
+		context.setLineDash(styleEdgeBorderDash);
+		break;
+	case 'solid':
+		context.setLineDash(styleEdgeBorderSolid);
+		break;
+	}
+
+	var lerpCoef = 0.9;
+
+	context.beginPath();
+	context.moveTo(
+		lerp(points[(0 * 3 + 0) * 2 + 0], points[(0 * 3 + k) * 2 + 0], lerpCoef),
+		lerp(points[(0 * 3 + 0) * 2 + 1], points[(0 * 3 + k) * 2 + 1], lerpCoef));
+	for(var i = 1; i <= edgeSegmentsCount; ++i) {
+		context.lineTo(
+			lerp(points[(i * 3 + 0) * 2 + 0], points[(i * 3 + k) * 2 + 0], lerpCoef),
+			lerp(points[(i * 3 + 0) * 2 + 1], points[(i * 3 + k) * 2 + 1], lerpCoef));
+	}
+	context.stroke();
+}
 
 function lerp(a, b, t) {
 	return a + (b - a) * t;
