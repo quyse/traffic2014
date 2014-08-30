@@ -553,7 +553,7 @@ Car.prototype.process = function(world, time) {
 	this.div.css({
 		transform: 'rotate(' + o.angle + 'rad)',
 		left: o.x - 75,
-		top: o.y - 75
+		top: o.y - 25
 	});
 };
 
