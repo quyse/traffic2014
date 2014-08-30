@@ -1,0 +1,70 @@
+<!doctype html>
+<html>
+	<head>
+		<title>Traffic Editor</title>
+		<script type="text/javascript" src="jquery-2.1.1.min.js"></script>
+		<script type="text/javascript" src="engine.js"></script>
+		<style>
+			body {
+				font-family: sans-serif;
+			}
+			#toolsContainer {
+				position: absolute;
+				left: 0;
+				top: 0;
+				width: 300px;
+				bottom: 0;
+			}
+			#canvasContainer {
+				position: absolute;
+				left: 300px;
+				top: 0;
+				right: 0;
+				bottom: 0;
+				overflow: scroll;
+			}
+			#canvas {
+				border: 5px solid black;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="toolsContainer">
+			<h1>Traffic Editor</h1>
+			<div>
+				<input type="file" id="file" />
+			</div>
+			<div>
+				<input type="button" id="buttonLoadFile" value="load" />
+				<input type="button" id="buttonSerialize" value="serialize" />
+			</div>
+			<div>
+				<textarea id="text"></textarea>
+			</div>
+		</div>
+		<div id="canvasContainer">
+			<canvas id="canvas" width="2048" height="2048"></canvas>
+		</div>
+		<script type="text/javascript">
+			var engine = new Engine(document.getElementById('canvas'));
+
+			var graph = null;
+
+			$('#buttonLoadFile').click(function() {
+				var file = $('#file')[0].files[0];
+				var fileReader = new FileReader();
+				fileReader.onload = function(e) {
+					var text = e.target.result;
+					$('#text').val(text);
+					graph = Engine.Graph.deserialize(JSON.parse(text));
+					drawGraph();
+				};
+				fileReader.readAsText(file);
+			});
+
+			var drawGraph = function() {
+				engine.drawGraph(graph);
+			};
+		</script>
+	</body>
+</html>
