@@ -274,6 +274,11 @@ function drawGraph(graph) {
 		drawBorder(edge, edge.leftBorder, 2);
 	}
 	context.setLineDash(styleEdgeBorderSolid);
+}
+this.drawGraph = drawGraph;
+
+function drawGraphDebug(graph) {
+	var edges = graph.edges;
 
 	// draw arrows
 	context.strokeStyle = styleColorEdgeLine;
@@ -296,12 +301,8 @@ function drawGraph(graph) {
 			arrowDirX,
 			arrowDirY);
 	}
-}
-this.drawGraph = drawGraph;
 
-function drawGraphDebug(graph) {
-	var edges = graph.edges;
-
+	// draw sibling arrows
 	context.strokeStyle = styleColorEdgeSiblingLine;
 	context.lineWidth = styleEdgeLineWidth;
 	for(var i = 0; i < edges.length; ++i) {
