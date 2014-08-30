@@ -202,29 +202,17 @@ function drawGraph(graph) {
 		var points = edge.points;
 
 		// make path
-		context.fillStyle = styleColorEdgeBase;
+		context.strokeStyle = styleColorEdgeBase;
+		context.lineWidth = edgeHalfWidth * 2;
 		context.beginPath();
-		context.moveTo(points[(0 * 3 + 2) * 2 + 0], points[(0 * 3 + 2) * 2 + 1]);
-		for(var j = 1; j <= edgeSegmentsCount; ++j)
-			context.lineTo(points[(j * 3 + 2) * 2 + 0], points[(j * 3 + 2) * 2 + 1]);
-		for(var j = edgeSegmentsCount; j >= 0; --j)
-			context.lineTo(points[(j * 3 + 1) * 2 + 0], points[(j * 3 + 1) * 2 + 1]);
-		context.fill();
-
-		// center line
-		if(0) {
-			context.strokeStyle = styleColorEdgeLine;
-			context.lineWidth = styleEdgeLineWidth;
-			context.beginPath();
-			context.moveTo(vertexA.positionX, vertexA.positionY);
-			context.bezierCurveTo(
-				vertexA.positionX + vertexA.directionX * edge.bezierLengthA,
-				vertexA.positionY + vertexA.directionY * edge.bezierLengthA,
-				vertexB.positionX + vertexB.directionX * edge.bezierLengthB,
-				vertexB.positionY + vertexB.directionY * edge.bezierLengthB,
-				vertexB.positionX, vertexB.positionY);
-			context.stroke();
-		}
+		context.moveTo(vertexA.positionX, vertexA.positionY);
+		context.bezierCurveTo(
+			vertexA.positionX + vertexA.directionX * edge.bezierLengthA,
+			vertexA.positionY + vertexA.directionY * edge.bezierLengthA,
+			vertexB.positionX + vertexB.directionX * edge.bezierLengthB,
+			vertexB.positionY + vertexB.directionY * edge.bezierLengthB,
+			vertexB.positionX, vertexB.positionY);
+		context.stroke();
 	}
 }
 this.drawGraph = drawGraph;
