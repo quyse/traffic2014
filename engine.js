@@ -305,33 +305,39 @@ function drawGraphDebug(graph) {
 	context.strokeStyle = styleColorEdgeSiblingLine;
 	context.lineWidth = styleEdgeLineWidth;
 	for(var i = 0; i < edges.length; ++i) {
-		var leftEdge = edges[i];
-		var rightEdge = leftEdge.rightEdge;
+		var edge = edges[i];
 
-		if(!rightEdge)
-			continue;
+		var leftEdge = edge.leftEdge;
+		if(leftEdge) {
+			var centerRightX = edge.getCenterX();
+			var centerRightY = edge.getCenterY();
+			var centerLeftX = leftEdge.getCenterX();
+			var centerLeftY = leftEdge.getCenterY();
 
-		var centerLeftX = leftEdge.getCenterX();
-		var centerLeftY = leftEdge.getCenterY();
-		var centerRightX = rightEdge.getCenterX();
-		var centerRightY = rightEdge.getCenterY();
+			var normalX = centerRightX - centerLeftX;
+			var normalY = centerRightY - centerLeftY;
+			var normalLength = length(normalX, normalY);
+			normalX /= normalLength;
+			normalY /= normalLength;
 
-		var centerX = (centerLeftX + centerRightX) * 0.5;
-		var centerY = (centerLeftY + centerRightY) * 0.5;
+			drawArrow(centerRightX - normalX * styleArrowLength * 2, centerRightY - normalY * styleArrowLength * 2, normalX, normalY);
+		}
 
-		var leftDirX = leftEdge.vertexB.positionX - centerX;
-		var leftDirY = leftEdge.vertexB.positionY - centerY;
-		var leftDirLength = length(leftDirX, leftDirY);
-		leftDirX /= leftDirLength;
-		leftDirY /= leftDirLength;
-		var rightDirX = rightEdge.vertexB.positionX - centerX;
-		var rightDirY = rightEdge.vertexB.positionY - centerY;
-		var rightDirLength = length(rightDirX, rightDirY);
-		rightDirX /= rightDirLength;
-		rightDirY /= rightDirLength;
+		var rightEdge = edge.rightEdge;
+		if(rightEdge) {
+			var centerLeftX = edge.getCenterX();
+			var centerLeftY = edge.getCenterY();
+			var centerRightX = rightEdge.getCenterX();
+			var centerRightY = rightEdge.getCenterY();
 
-		drawArrow(centerX, centerY, leftDirX, leftDirY);
-		drawArrow(centerX, centerY, rightDirX, rightDirY);
+			var normalX = centerRightX - centerLeftX;
+			var normalY = centerRightY - centerLeftY;
+			var normalLength = length(normalX, normalY);
+			normalX /= normalLength;
+			normalY /= normalLength;
+
+			drawArrow(centerLeftX, centerLeftY, normalX, normalY);
+		}
 	}
 }
 this.drawGraphDebug = drawGraphDebug;

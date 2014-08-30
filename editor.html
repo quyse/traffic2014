@@ -76,11 +76,17 @@
 				<h2>Vertex</h2>
 				<input type="button" id="buttonDeleteVertex" value="delete" />
 				<input type="button" id="buttonClearFirstVertex" value="clear first" />
+				<div id="radioVertexType">
+					<input type="radio" name="radioVertexType" id="radioVertexTypeNone" value="none" /><label for="radioVertexTypeNone">none</label>
+					<input type="radio" name="radioVertexType" id="radioVertexTypeSource" value="source" /><label for="radioVertexTypeSource">source</label>
+					<input type="radio" name="radioVertexType" id="radioVertexTypeSink" value="sink" /><label for="radioVertexTypeSink">sink</label>
+				</div>
 			</div>
 			<div>
 				<h2>Edge</h2>
 				<input type="button" id="buttonDeleteEdge" value="delete" />
 				<input type="button" id="buttonClearFirstEdge" value="clear first" />
+				<input type="button" id="buttonClearSiblings" value="clear siblings" />
 				<h3>left border</h3>
 				<div id="radioEdgeBorderLeft">
 					<input type="radio" name="radioEdgeBorderLeft" id="radioEdgeBorderLeftNone" value="none" /><label for="radioEdgeBorderLeftNone">none</label>
@@ -173,7 +179,7 @@
 					engine.drawGraphDebug(graph);
 					if(selectedEdge)
 						engine.drawEdgeSelection(selectedEdge);
-				});
+				}, 0);
 				needDraw = true;
 			};
 
@@ -200,6 +206,8 @@
 				vertex.directionY = 1;
 				graph.addVertex(vertex);
 				addVertex(vertex);
+
+				return false;
 			});
 
 			var firstVertexForCreateEdge = null;
@@ -252,6 +260,8 @@
 					} else {
 						firstVertexForCreateEdge = vertex;
 					}
+
+					return false;
 				});
 			}
 
@@ -259,6 +269,19 @@
 
 			$('#buttonClearFirstEdge').click(function() {
 				firstEdgeForSiblingEdge = null;
+			});
+			$('#buttonClearSiblings').click(function() {
+				if(selectedEdge) {
+					if(selectedEdge.leftEdge) {
+						selectedEdge.leftEdge.rightEdge = null;
+						selectedEdge.leftEdge = null;
+					}
+					if(selectedEdge.rightEdge) {
+						selectedEdge.rightEdge.leftEdge = null;
+						selectedEdge.rightEdge = null;
+					}
+					drawGraph();
+				}
 			});
 
 			function addEdge(edge) {
@@ -276,6 +299,8 @@
 					} else {
 						firstEdgeForSiblingEdge = edge;
 					}
+
+					return false;
 				}
 
 				function addMarker(vertex, bezierLengthProperty, bezierMult) {
