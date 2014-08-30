@@ -513,9 +513,9 @@ function randomSelect(a) {
 	return a[Math.floor(Math.random() * a.length) % a.length];
 }
 
-var carMaxSpeed = 200;
-var carAcceleration = 40;
-var carBrake = 50;
+var carMaxSpeed = 400;
+var carAcceleration = 200;
+var carBrake = 600;
 var carRadius = 100;
 var carRandomsCount = 5;
 var carFreeDistance = 200;
@@ -576,7 +576,7 @@ function canGoForward(selfCar, edge, travel, depth) {
 		if(car == selfCar)
 			continue;
 		var distance = car.travel - travel;
-		if(distance >= 0 && distance < carFreeDistance)
+		if(distance > 0 && distance < carFreeDistance)
 			return false;
 	}
 
