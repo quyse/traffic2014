@@ -246,6 +246,13 @@ Light.prototype.initDiv = function(parentDiv) {
 	div.css('left', this.positionX - 57);
 	div.css('top', this.positionY - 86);
 	div.css('transform', 'rotate(' + (this.angle - Math.PI * 0.5) + 'rad)');
+	var self = this;
+	div.click(function() {
+		if(self.color == 'red')
+			self.manualSwitch('green');
+		else if(self.color == 'green')
+			self.manualSwitch('red');
+	});
 };
 Light.prototype.process = function(time) {
 	this.time -= time;
@@ -276,9 +283,11 @@ Light.prototype.process = function(time) {
 Light.prototype.manualSwitch = function(color) {
 	if(this.color == color || this.color == 'yellow' && this.nextColor == color)
 		return;
+	this.div.removeClass(this.color);
 	this.time = lightYellowTime;
 	this.color = 'yellow';
 	this.nextColor = color;
+	this.div.addClass('yellow');
 };
 
 function Graph() {
@@ -776,6 +785,9 @@ function World(graph, div, carTypes) {
 
 	for(var i = 0; i < graph.lights.length; ++i)
 		graph.lights[i].initDiv(div);
+
+	this.speedSum = 0;
+	this.timeSum = 0;
 }
 World.prototype.removeCar = function(car) {
 	for(var i = 0; i < this.cars.length; ++i)
@@ -803,8 +815,14 @@ World.prototype.process = function(time) {
 	}
 
 	// advance cars
-	for(var i = 0; i < this.cars.length; ++i)
+	var localSpeedSum = 0;
+	for(var i = 0; i < this.cars.length; ++i) {
 		this.cars[i].process(this, time);
+		localSpeedSum += this.cars[i].speed;
+		this.timeSum += time;
+	}
+	if(this.cars.length > 0)
+		this.speedSum += localSpeedSum / this.cars.length;
 
 	// process lights
 	for(var i = 0; i < this.lights.length; ++i)
