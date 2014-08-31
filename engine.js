@@ -14,6 +14,7 @@ var styleColorEdgeBase = "#555";
 var styleColorEdgeLine = "#fff";
 var styleColorEdgeSiblingLine = "#00f";
 var styleColorEdgeSelection = "#0f0";
+var styleColorEdgeLightLine = "#0ff";
 var styleEdgeLineWidth = 2;
 var styleArrowLength = 10;
 var styleArrowSide = 5;
@@ -23,6 +24,7 @@ var styleEdgeBorderSolid = [];
 // counters for ids
 var vertexId = 0;
 var edgeId = 0;
+var lightId = 0;
 
 function Vertex() {
 	this.id = ++vertexId;
@@ -49,6 +51,7 @@ function Edge() {
 	this.bezierLengthB = 0;
 	this.leftBorder = "none"; // "none", "dash", "solid"
 	this.rightBorder = "none";
+	this.light = null;
 
 	// cache for positions (center-right-left)
 	this.points = new Float32Array((edgeSegmentsCount + 1) * 3 * 2);
@@ -222,9 +225,75 @@ Edge.prototype.removeCar = function(car) {
 		}
 };
 
+var lightMainTime = 10;
+var lightYellowTime = 1;
+
+function Light() {
+	this.id = ++lightId;
+	this.positionX = 0;
+	this.positionY = 0;
+	this.angle = 0;
+	this.color = 'red';
+	this.nextColor = 'green';
+	this.time = lightMainTime;
+	this.div = null;
+};
+Engine.Light = Light;
+Light.prototype.initDiv = function(parentDiv) {
+	var div = $('<div class="light ' + this.color + '"></div>');
+	this.div = div;
+	div.appendTo(parentDiv);
+	div.css('left', this.positionX - 57);
+	div.css('top', this.positionY - 86);
+	div.css('transform', 'rotate(' + (this.angle - Math.PI * 0.5) + 'rad)');
+	var self = this;
+	div.click(function() {
+		if(self.color == 'red')
+			self.manualSwitch('green');
+		else if(self.color == 'green')
+			self.manualSwitch('red');
+	});
+};
+Light.prototype.process = function(time) {
+	this.time -= time;
+	var colorChanged = false;
+	while(this.time < 0) {
+		this.div.removeClass(this.color);
+		switch(this.color) {
+		case 'red':
+			this.color = 'yellow';
+			this.time += lightYellowTime;
+			this.nextColor = 'green';
+			break;
+		case 'yellow':
+			this.color = this.nextColor;
+			this.time += lightMainTime;
+			break;
+		case 'green':
+			this.color = 'yellow';
+			this.time += lightYellowTime;
+			this.nextColor = 'red';
+			break;
+		}
+		colorChanged = true;
+	}
+	if(colorChanged)
+		this.div.addClass(this.color);
+};
+Light.prototype.manualSwitch = function(color) {
+	if(this.color == color || this.color == 'yellow' && this.nextColor == color)
+		return;
+	this.div.removeClass(this.color);
+	this.time = lightYellowTime;
+	this.color = 'yellow';
+	this.nextColor = color;
+	this.div.addClass('yellow');
+};
+
 function Graph() {
 	this.vertices = [];
 	this.edges = [];
+	this.lights = [];
 }
 Engine.Graph = Graph;
 Graph.prototype.getVertexIndex = function(vertex) {
@@ -238,6 +307,12 @@ Graph.prototype.getEdgeIndex = function(edge) {
 		if(this.edges[i].id == edge.id)
 			return i;
 	throw "no such edge";
+};
+Graph.prototype.getLightIndex = function(light) {
+	for(var i = 0; i < this.lights.length; ++i)
+		if(this.lights[i] == light)
+			return i;
+	throw "no such light";
 };
 Graph.prototype.addVertex = function(vertex) {
 	this.vertices.push(vertex);
@@ -256,6 +331,16 @@ Graph.prototype.removeEdge = function(edge) {
 	for(var i = 0; i < this.edges.length; ++i)
 		if(this.edges[i].id == edge.id) {
 			this.edges.splice(i, 1);
+			break;
+		}
+};
+Graph.prototype.addLight = function(light) {
+	this.lights.push(light);
+};
+Graph.prototype.removeLight = function(light) {
+	for(var i = 0; i < this.lights.length; ++i)
+		if(this.lights[i] == light) {
+			this.lights.splice(i, 1);
 			break;
 		}
 };
@@ -290,7 +375,16 @@ Graph.prototype.serialize = function() {
 				al: edge.bezierLengthA,
 				bl: edge.bezierLengthB,
 				borl: edge.leftBorder,
-				borr: edge.rightBorder
+				borr: edge.rightBorder,
+				light: edge.light ? self.getLightIndex(edge.light) : -1
+			};
+		}),
+		lights: this.lights.map(function(light) {
+			return {
+				x: light.positionX,
+				y: light.positionY,
+				a: light.angle,
+				c: light.color
 			};
 		})
 	};
@@ -315,12 +409,21 @@ Graph.deserialize = function(o) {
 		edge.rightBorder = e.borr || "none";
 		return edge;
 	});
+	graph.lights = o.lights.map(function(l) {
+		var light = new Light();
+		light.positionX = l.x;
+		light.positionY = l.y;
+		light.angle = l.a;
+		light.color = l.c;
+		return light;
+	});
 	for(var i = 0; i < o.edges.length; ++i) {
 		var l = o.edges[i].l;
 		var r = o.edges[i].r;
 		graph.edges[i].leftEdge = l >= 0 ? graph.edges[l] : null;
 		graph.edges[i].rightEdge = r >= 0 ? graph.edges[r] : null;
 		graph.edges[i].updatePoints();
+		graph.edges[i].light = o.edges[i].light >= 0 ? graph.lights[o.edges[i].light] : null;
 	}
 	return graph;
 };
@@ -435,6 +538,21 @@ function drawGraphDebug(graph) {
 			drawArrow(centerLeftX, centerLeftY, normalX, normalY);
 		}
 	}
+
+	// draw light arrows
+	context.strokeStyle = styleColorEdgeLightLine;
+	context.lineWidth = styleEdgeLineWidth;
+	for(var i = 0; i < edges.length; ++i) {
+		var edge = edges[i];
+		var light = edge.light;
+		if(!light)
+			continue;
+
+		context.beginPath();
+		context.moveTo(edge.vertexB.positionX, edge.vertexB.positionY);
+		context.lineTo(light.positionX, light.positionY);
+		context.stroke();
+	}
 }
 this.drawGraphDebug = drawGraphDebug;
 
@@ -515,7 +633,7 @@ function randomSelect(a) {
 
 var carMaxSpeed = 400;
 var carAcceleration = 200;
-var carBrake = 600;
+var carBrake = 1000;
 var carRadius = 100;
 var carRandomsCount = 5;
 var carFreeDistance = 200;
@@ -580,6 +698,13 @@ function canGoForward(selfCar, edge, travel, depth) {
 			return false;
 	}
 
+	// check light
+	if(edge.light && edge.light.color != 'green') {
+		var distance = edge.lengths[edgeSegmentsCount] - travel;
+		if(distance > 0 && distance < carFreeDistance)
+			return false;
+	}
+
 	// go forward
 	if(selfCar && edge.vertexB.outEdges.length > 0) {
 		var forwardTravel = travel - edge.lengths[edgeSegmentsCount];
@@ -597,6 +722,9 @@ function canGoForward(selfCar, edge, travel, depth) {
 				continue;
 			// if that car is not going to go on our edge, skip it
 			if(backwardEdge.vertexB.outEdges[car.getRandom(0)] != edge)
+				continue;
+			// if light forbids moving
+			if(backwardEdge.light && backwardEdge.light.color != 'green')
 				continue;
 			var distance = car.travel - backwardEdge.lengths[edgeSegmentsCount] - travel;
 			if(distance > 0 && distance < carFreeDistance)
@@ -649,10 +777,17 @@ function World(graph, div, carTypes) {
 	this.div = div;
 	this.carTypes = carTypes;
 	this.cars = [];
+	this.lights = graph.lights;
 	this.sourceVertices = [];
 	for(var i = 0; i < graph.vertices.length; ++i)
 		if(graph.vertices[i].inEdges.length <= 0 && graph.vertices[i].outEdges.length > 0)
 			this.sourceVertices.push(graph.vertices[i]);
+
+	for(var i = 0; i < graph.lights.length; ++i)
+		graph.lights[i].initDiv(div);
+
+	this.speedSum = 0;
+	this.timeSum = 0;
 }
 World.prototype.removeCar = function(car) {
 	for(var i = 0; i < this.cars.length; ++i)
@@ -680,8 +815,18 @@ World.prototype.process = function(time) {
 	}
 
 	// advance cars
-	for(var i = 0; i < this.cars.length; ++i)
+	var localSpeedSum = 0;
+	for(var i = 0; i < this.cars.length; ++i) {
 		this.cars[i].process(this, time);
+		localSpeedSum += this.cars[i].speed;
+		this.timeSum += time;
+	}
+	if(this.cars.length > 0)
+		this.speedSum += localSpeedSum / this.cars.length;
+
+	// process lights
+	for(var i = 0; i < this.lights.length; ++i)
+		this.lights[i].process(time);
 };
 Engine.World = World;
 
