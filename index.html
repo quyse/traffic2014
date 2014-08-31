@@ -20,8 +20,8 @@
 			}
 			#canvasContainer {
 				position: absolute;
-				left: 0;
-				top: 0;
+				left: -500px;
+				top: -2000px;
 				margin: 0;
 				padding: 0;
 				background-color: #fff;
@@ -64,6 +64,96 @@
 			.light.green {
 				background-image: url('art/green_small.png');
 			}
+
+			#intro {
+				position: absolute;
+				left: 0;
+				right: 0;
+				width: 600px;
+				top: 50px;
+				height: 400px;
+				background-color: #222;
+				color: #fff;
+				font-family: serif;
+				text-align: center;
+				margin-left: auto;
+				margin-right: auto;
+				display: none;
+			}
+			#intro > .header {
+				position: absolute;
+				left: 0;
+				top: 0;
+				right: 0;
+				bottom: 0;
+				font-size: 100px;
+			}
+			#intro > .credits {
+				position: absolute;
+				left: 0;
+				height: 100px;
+				right: 0;
+				bottom: 60px;
+				font-size: 20px;
+			}
+			#intro > .specialfor {
+				position: absolute;
+				left: 0;
+				height: 100px;
+				right: 0;
+				bottom: 30px;
+				font-size: 20px;
+			}
+			#intro > .year {
+				position: absolute;
+				left: 0;
+				height: 100px;
+				right: 0;
+				bottom: 0;
+				font-size: 20px;
+			}
+			#intro a {
+				color: #fff;
+			}
+
+			#help {
+				position: absolute;
+				left: 50px;
+				top: 20px;
+				width: 450px;
+				height: 200px;
+				background-color: #222;
+				color: #fff;
+				display: none;
+				padding: 10px;
+			}
+			#help h1 {
+				font-size: 24px;
+				font-weight: bold;
+			}
+			#help p {
+				font-size: 18px;
+				font-weight: normal;
+			}
+			#buttonToggleHelp {
+				position: absolute;
+				left: 20px;
+				top: 20px;
+				width: 20px;
+				height: 20px;
+				background: #222;
+				color: #fff;
+				text-align: center;
+				font-family: serif;
+				font-size: 16px;
+				font-weight: bold;
+				cursor: pointer;
+				display: none;
+			}
+			#buttonToggleHelp:hover {
+				background-color: #fff;
+				color: #222;
+			}
 		</style>
 	</head>
 	<body>
@@ -72,6 +162,18 @@
 				<canvas id="canvas" width="4096" height="4096"></canvas>
 			</div>
 		</div>
+		<audio id="audio" src="art/street-traffic-1.mp3" loop></audio>
+		<div id="intro">
+			<div class="header">Traffic</div>
+			<div class="credits">quyse, dronimal</div>
+			<div class="specialfor">special for <a href="http://2014.chaosconstructions.ru/" target="_blank">Chaos Constructions</a> / <a href="http://geekparty.ru/" target="_blank">geekparty.ru</a></div>
+			<div class="year">2014</div>
+		</div>
+		<div id="help">
+			<h1>Traffic</h1>
+			<p>Goal: try to get maximum score. Score depends on average speed of cars. You can switch traffic lights manually with your mouse. You have only 3 minutes!</p>
+		</div>
+		<div id="buttonToggleHelp">?</div>
 		<script type="text/javascript">
 			var canvasContainer = $('#canvasContainer');
 			var canvas = $('#canvas')[0];
@@ -113,6 +215,23 @@
 			}
 
 			$('#canvasContainer').draggable();
+
+			$(document).ready(function() {
+				$('#intro').fadeIn(1000).queue(function(next) {
+					$('#audio')[0].play();
+					next();
+				}).delay(4000).fadeOut(1000).queue(function() {
+					$(this).remove();
+					setTimeout(function() {
+						$('#help').fadeIn(500).delay(5000).fadeOut(500);
+						$('#buttonToggleHelp').fadeIn(500);
+					}, 500);
+				});
+			});
+
+			$('#buttonToggleHelp').click(function() {
+				$('#help').clearQueue().fadeToggle(500);
+			});
 
 		</script>
 	</body>
