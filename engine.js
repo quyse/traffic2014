@@ -225,14 +225,61 @@ Edge.prototype.removeCar = function(car) {
 		}
 };
 
+var lightMainTime = 10;
+var lightYellowTime = 1;
+
 function Light() {
 	this.id = ++lightId;
 	this.positionX = 0;
 	this.positionY = 0;
 	this.angle = 0;
-	this.color = "red";
+	this.color = 'red';
+	this.nextColor = 'green';
+	this.time = lightMainTime;
+	this.div = null;
 };
 Engine.Light = Light;
+Light.prototype.initDiv = function(parentDiv) {
+	var div = $('<div class="light ' + this.color + '"></div>');
+	this.div = div;
+	div.appendTo(parentDiv);
+	div.css('left', this.positionX - 57);
+	div.css('top', this.positionY - 86);
+	div.css('transform', 'rotate(' + (this.angle - Math.PI * 0.5) + 'rad)');
+};
+Light.prototype.process = function(time) {
+	this.time -= time;
+	var colorChanged = false;
+	while(this.time < 0) {
+		this.div.removeClass(this.color);
+		switch(this.color) {
+		case 'red':
+			this.color = 'yellow';
+			this.time += lightYellowTime;
+			this.nextColor = 'green';
+			break;
+		case 'yellow':
+			this.color = this.nextColor;
+			this.time += lightMainTime;
+			break;
+		case 'green':
+			this.color = 'yellow';
+			this.time += lightYellowTime;
+			this.nextColor = 'red';
+			break;
+		}
+		colorChanged = true;
+	}
+	if(colorChanged)
+		this.div.addClass(this.color);
+};
+Light.prototype.manualSwitch = function(color) {
+	if(this.color == color || this.color == 'yellow' && this.nextColor == color)
+		return;
+	this.time = lightYellowTime;
+	this.color = 'yellow';
+	this.nextColor = color;
+};
 
 function Graph() {
 	this.vertices = [];
@@ -577,7 +624,7 @@ function randomSelect(a) {
 
 var carMaxSpeed = 400;
 var carAcceleration = 200;
-var carBrake = 600;
+var carBrake = 1000;
 var carRadius = 100;
 var carRandomsCount = 5;
 var carFreeDistance = 200;
@@ -642,6 +689,13 @@ function canGoForward(selfCar, edge, travel, depth) {
 			return false;
 	}
 
+	// check light
+	if(edge.light && edge.light.color != 'green') {
+		var distance = edge.lengths[edgeSegmentsCount] - travel;
+		if(distance > 0 && distance < carFreeDistance)
+			return false;
+	}
+
 	// go forward
 	if(selfCar && edge.vertexB.outEdges.length > 0) {
 		var forwardTravel = travel - edge.lengths[edgeSegmentsCount];
@@ -659,6 +713,9 @@ function canGoForward(selfCar, edge, travel, depth) {
 				continue;
 			// if that car is not going to go on our edge, skip it
 			if(backwardEdge.vertexB.outEdges[car.getRandom(0)] != edge)
+				continue;
+			// if light forbids moving
+			if(backwardEdge.light && backwardEdge.light.color != 'green')
 				continue;
 			var distance = car.travel - backwardEdge.lengths[edgeSegmentsCount] - travel;
 			if(distance > 0 && distance < carFreeDistance)
@@ -711,10 +768,14 @@ function World(graph, div, carTypes) {
 	this.div = div;
 	this.carTypes = carTypes;
 	this.cars = [];
+	this.lights = graph.lights;
 	this.sourceVertices = [];
 	for(var i = 0; i < graph.vertices.length; ++i)
 		if(graph.vertices[i].inEdges.length <= 0 && graph.vertices[i].outEdges.length > 0)
 			this.sourceVertices.push(graph.vertices[i]);
+
+	for(var i = 0; i < graph.lights.length; ++i)
+		graph.lights[i].initDiv(div);
 }
 World.prototype.removeCar = function(car) {
 	for(var i = 0; i < this.cars.length; ++i)
@@ -744,6 +805,10 @@ World.prototype.process = function(time) {
 	// advance cars
 	for(var i = 0; i < this.cars.length; ++i)
 		this.cars[i].process(this, time);
+
+	// process lights
+	for(var i = 0; i < this.lights.length; ++i)
+		this.lights[i].process(time);
 };
 Engine.World = World;
 
