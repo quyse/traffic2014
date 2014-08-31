@@ -16,6 +16,7 @@
 				width: 300px;
 				bottom: 0;
 				border-right: 1px solid black;
+				overflow: scroll;
 			}
 			#canvasContainerContainer {
 				position: absolute;
@@ -50,6 +51,24 @@
 			.edgeMarker.selected {
 				background-color: #0f0;
 			}
+
+			.lightMarker {
+				width: 115px;
+				height: 173px;
+				transform-origin: 57px 86px;
+			}
+			.lightMarker.selected {
+				background-color: rgba(0,255,255,0.5);
+			}
+			.lightMarker.red {
+				background-image: url('art/red_small.png');
+			}
+			.lightMarker.yellow {
+				background-image: url('art/yellow_small.png');
+			}
+			.lightMarker.green {
+				background-image: url('art/green_small.png');
+			}
 		</style>
 	</head>
 	<body>
@@ -71,6 +90,8 @@
 				<input type="radio" name="radioMode" id="radioModeCreateVertex" value="createVertex" /><label for="radioModeCreateVertex">create vertex (RIGHT MOUSE)</label>
 				<input type="radio" name="radioMode" id="radioModeCreateEdge" value="createEdge" /><label for="radioModeCreateEdge">create edge (RIGHT MOUSE)</label>
 				<input type="radio" name="radioMode" id="radioModeSiblingEdge" value="siblingEdge" /><label for="radioModeSiblingEdge">LEFT-RIGHT sibling edge (RIGHT MOUSE)</label>
+				<input type="radio" name="radioMode" id="radioModeCreateLight" value="createLight" /><label for="radioModeCreateLight">create light (RIGHT MOUSE)</label>
+				<input type="radio" name="radioMode" id="radioModeLightEdge" value="lightEdge" /><label for="radioModeLightEdge">light-to-edge (RIGHT MOUSE)</label>
 			</div>
 			<div>
 				<h2>Vertex</h2>
@@ -93,6 +114,16 @@
 					<input type="radio" name="radioEdgeBorderRight" id="radioEdgeBorderRightNone" value="none" /><label for="radioEdgeBorderRightNone">none</label>
 					<input type="radio" name="radioEdgeBorderRight" id="radioEdgeBorderRightDash" value="dash" /><label for="radioEdgeBorderRightDash">dash</label>
 					<input type="radio" name="radioEdgeBorderRight" id="radioEdgeBorderRightSolid" value="solid" /><label for="radioEdgeBorderRightSolid">solid</label>
+				</div>
+			</div>
+			<div>
+				<h2>Light</h2>
+				<input type="button" id="buttonDeleteLight" value="delete" />
+				<input type="button" id="buttonOrientLight" value="orient" />
+				<div id="radioLightColor">
+					<input type="radio" name="radioLightColor" id="radioLightColorRed" value="red" /><label for="radioLightColorRed">red</label>
+					<input type="radio" name="radioLightColor" id="radioLightColorYellow" value="yellow" /><label for="radioLightColorYellow">yellow</label>
+					<input type="radio" name="radioLightColor" id="radioLightColorGreen" value="green" /><label for="radioLightColorGreen">green</label>
 				</div>
 			</div>
 		</div>
@@ -136,12 +167,14 @@
 				if(event.button == 2) {
 					selectVertex(null);
 					selectEdge(null);
+					selectLight(null);
 				}
 			});
 
 			$('#radioMode').buttonset();
 			$('#radioEdgeBorderLeft').buttonset();
 			$('#radioEdgeBorderRight').buttonset();
+			$('#radioLightColor').buttonset();
 
 			$('input[name=radioEdgeBorderLeft]', '#radioEdgeBorderLeft').click(function() {
 				if(selectedEdge) {
@@ -152,6 +185,14 @@
 			$('input[name=radioEdgeBorderRight]', '#radioEdgeBorderRight').click(function() {
 				if(selectedEdge) {
 					selectedEdge.rightBorder = $('input[name=radioEdgeBorderRight]:checked', '#radioEdgeBorderRight').val();
+					drawGraph();
+				}
+			});
+
+			$('input[name=radioLightColor]', '#radioLightColor').click(function() {
+				if(selectedLight) {
+					selectedLight.color = $('input[name=radioLightColor]:checked', '#radioLightColor').val();
+					$('.lightMarker' + selectedLight.id)[0].update();
 					drawGraph();
 				}
 			});
@@ -189,18 +230,31 @@
 			});
 
 			$('#canvas').mousedown(function(e) {
-				if(getMode() != 'createVertex' || e.button != 2)
+				if(e.button != 2)
 					return;
 
-				var parentOffset = $(this).parent().offset();
+				if(getMode() == 'createVertex') {
+					var parentOffset = $(this).parent().offset();
 
-				var vertex = new Engine.Vertex();
-				vertex.positionX = e.pageX - parentOffset.left;
-				vertex.positionY = e.pageY - parentOffset.top;
-				vertex.directionX = 0;
-				vertex.directionY = 1;
-				graph.addVertex(vertex);
-				addVertex(vertex);
+					var vertex = new Engine.Vertex();
+					vertex.positionX = e.pageX - parentOffset.left;
+					vertex.positionY = e.pageY - parentOffset.top;
+					vertex.directionX = 0;
+					vertex.directionY = 1;
+					graph.addVertex(vertex);
+					addVertex(vertex);
+				}
+
+				if(getMode() == 'createLight') {
+					var parentOffset = $(this).parent().offset();
+
+					var light = new Engine.Light();
+					light.positionX = e.pageX - parentOffset.left;
+					light.positionY = e.pageY - parentOffset.top;
+					light.angle = 0;
+					graph.addLight(light);
+					addLight(light);
+				}
 
 				return false;
 			});
@@ -283,16 +337,23 @@
 				function onMouseDown(e) {
 					selectEdge(edge);
 
-					if(getMode() != 'siblingEdge' || e.button != 2)
+					if(e.button != 2)
 						return;
 
-					if(firstEdgeForSiblingEdge) {
-						firstEdgeForSiblingEdge.rightEdge = edge;
-						edge.leftEdge = firstEdgeForSiblingEdge;
-						firstEdgeForSiblingEdge = null;
+					if(getMode() == 'siblingEdge') {
+						if(firstEdgeForSiblingEdge) {
+							firstEdgeForSiblingEdge.rightEdge = edge;
+							edge.leftEdge = firstEdgeForSiblingEdge;
+							firstEdgeForSiblingEdge = null;
+							drawGraph();
+						} else {
+							firstEdgeForSiblingEdge = edge;
+						}
+					}
+
+					if(getMode() == 'lightEdge') {
+						edge.light = selectedLight;
 						drawGraph();
-					} else {
-						firstEdgeForSiblingEdge = edge;
 					}
 
 					return false;
@@ -348,6 +409,33 @@
 				})();
 			}
 
+			function addLight(light) {
+				// position marker
+				var div = $('<div class="marker lightMarker lightMarker' + light.id + '"></div>');
+				div.appendTo(canvasContainer);
+				div[0].update = function() {
+					div.css('left', light.positionX - 57);
+					div.css('top', light.positionY - 86);
+					div.css('transform', 'rotate(' + (light.angle - Math.PI * 0.5) + 'rad)');
+					div.removeClass('red');
+					div.removeClass('yellow');
+					div.removeClass('green');
+					div.addClass(light.color);
+				};
+				div[0].update();
+				div.draggable({
+					drag: function(event, ui) {
+						light.positionX = ui.position.left + 57;
+						light.positionY = ui.position.top + 86;
+
+						drawGraph();
+					}
+				});
+				div.mousedown(function(e) {
+					selectLight(light);
+				});
+			}
+
 			function loadMarkers() {
 				$('.marker').remove();
 
@@ -355,8 +443,13 @@
 				for(var i = 0; i < graph.vertices.length; ++i)
 					addVertex(graph.vertices[i]);
 
+				// edge markers
 				for(var i = 0; i < graph.edges.length; ++i)
 					addEdge(graph.edges[i]);
+
+				// light markers
+				for(var i = 0; i < graph.lights.length; ++i)
+					addLight(graph.lights[i]);
 			}
 
 			var selectedVertex = null;
@@ -382,6 +475,19 @@
 					$('#radioEdgeBorderRight').buttonset("refresh");
 				}
 				drawGraph();
+			}
+
+			var selectedLight = null;
+			function selectLight(light) {
+				if(selectedLight)
+					$('.lightMarker').removeClass('selected');
+				selectedLight = light;
+				if(selectedLight) {
+					$('.lightMarker' + light.id).addClass('selected');
+
+					$('input[name=radioLightColor][value=' + selectedLight.color + ']').prop('checked', true);
+					$('#radioLightColor').buttonset('refresh');
+				}
 			}
 
 			function removeVertex(vertex) {
@@ -416,6 +522,41 @@
 				if(selectedEdge) {
 					removeEdge(selectedEdge);
 					drawGraph();
+				}
+			});
+
+			function removeLight(light) {
+				for(var i = 0; i < graph.edges.length; ++i)
+					if(graph.edges[i].light == light)
+						graph.edges[i].light = null;
+				$('.lightMarker' + light.id).remove();
+				if(selectedLight == light)
+					selectLight(null);
+			}
+			$('#buttonDeleteLight').click(function() {
+				if(selectedLight) {
+					removeLight(selectedLight);
+					drawGraph();
+				}
+			});
+
+			$('#buttonOrientLight').click(function() {
+				if(selectedLight) {
+					var count = 0, x = 0, y = 0;
+					for(var i = 0; i < graph.edges.length; ++i) {
+						var edge = graph.edges[i];
+						if(edge.light == selectedLight) {
+							x += edge.vertexB.positionX;
+							y += edge.vertexB.positionY;
+							count++;
+						}
+					}
+					if(count > 0) {
+						x /= count;
+						y /= count;
+						selectedLight.angle = Math.atan2(y - selectedLight.positionY, x - selectedLight.positionX);
+						$('.lightMarker' + selectedLight.id)[0].update();
+					}
 				}
 			});
 		</script>

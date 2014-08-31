@@ -14,6 +14,7 @@ var styleColorEdgeBase = "#555";
 var styleColorEdgeLine = "#fff";
 var styleColorEdgeSiblingLine = "#00f";
 var styleColorEdgeSelection = "#0f0";
+var styleColorEdgeLightLine = "#0ff";
 var styleEdgeLineWidth = 2;
 var styleArrowLength = 10;
 var styleArrowSide = 5;
@@ -23,6 +24,7 @@ var styleEdgeBorderSolid = [];
 // counters for ids
 var vertexId = 0;
 var edgeId = 0;
+var lightId = 0;
 
 function Vertex() {
 	this.id = ++vertexId;
@@ -49,6 +51,7 @@ function Edge() {
 	this.bezierLengthB = 0;
 	this.leftBorder = "none"; // "none", "dash", "solid"
 	this.rightBorder = "none";
+	this.light = null;
 
 	// cache for positions (center-right-left)
 	this.points = new Float32Array((edgeSegmentsCount + 1) * 3 * 2);
@@ -222,9 +225,19 @@ Edge.prototype.removeCar = function(car) {
 		}
 };
 
+function Light() {
+	this.id = ++lightId;
+	this.positionX = 0;
+	this.positionY = 0;
+	this.angle = 0;
+	this.color = "red";
+};
+Engine.Light = Light;
+
 function Graph() {
 	this.vertices = [];
 	this.edges = [];
+	this.lights = [];
 }
 Engine.Graph = Graph;
 Graph.prototype.getVertexIndex = function(vertex) {
@@ -238,6 +251,12 @@ Graph.prototype.getEdgeIndex = function(edge) {
 		if(this.edges[i].id == edge.id)
 			return i;
 	throw "no such edge";
+};
+Graph.prototype.getLightIndex = function(light) {
+	for(var i = 0; i < this.lights.length; ++i)
+		if(this.lights[i] == light)
+			return i;
+	throw "no such light";
 };
 Graph.prototype.addVertex = function(vertex) {
 	this.vertices.push(vertex);
@@ -256,6 +275,16 @@ Graph.prototype.removeEdge = function(edge) {
 	for(var i = 0; i < this.edges.length; ++i)
 		if(this.edges[i].id == edge.id) {
 			this.edges.splice(i, 1);
+			break;
+		}
+};
+Graph.prototype.addLight = function(light) {
+	this.lights.push(light);
+};
+Graph.prototype.removeLight = function(light) {
+	for(var i = 0; i < this.lights.length; ++i)
+		if(this.lights[i] == light) {
+			this.lights.splice(i, 1);
 			break;
 		}
 };
@@ -290,7 +319,16 @@ Graph.prototype.serialize = function() {
 				al: edge.bezierLengthA,
 				bl: edge.bezierLengthB,
 				borl: edge.leftBorder,
-				borr: edge.rightBorder
+				borr: edge.rightBorder,
+				light: edge.light ? self.getLightIndex(edge.light) : -1
+			};
+		}),
+		lights: this.lights.map(function(light) {
+			return {
+				x: light.positionX,
+				y: light.positionY,
+				a: light.angle,
+				c: light.color
 			};
 		})
 	};
@@ -315,12 +353,21 @@ Graph.deserialize = function(o) {
 		edge.rightBorder = e.borr || "none";
 		return edge;
 	});
+	graph.lights = o.lights.map(function(l) {
+		var light = new Light();
+		light.positionX = l.x;
+		light.positionY = l.y;
+		light.angle = l.a;
+		light.color = l.c;
+		return light;
+	});
 	for(var i = 0; i < o.edges.length; ++i) {
 		var l = o.edges[i].l;
 		var r = o.edges[i].r;
 		graph.edges[i].leftEdge = l >= 0 ? graph.edges[l] : null;
 		graph.edges[i].rightEdge = r >= 0 ? graph.edges[r] : null;
 		graph.edges[i].updatePoints();
+		graph.edges[i].light = o.edges[i].light >= 0 ? graph.lights[o.edges[i].light] : null;
 	}
 	return graph;
 };
@@ -434,6 +481,21 @@ function drawGraphDebug(graph) {
 
 			drawArrow(centerLeftX, centerLeftY, normalX, normalY);
 		}
+	}
+
+	// draw light arrows
+	context.strokeStyle = styleColorEdgeLightLine;
+	context.lineWidth = styleEdgeLineWidth;
+	for(var i = 0; i < edges.length; ++i) {
+		var edge = edges[i];
+		var light = edge.light;
+		if(!light)
+			continue;
+
+		context.beginPath();
+		context.moveTo(edge.vertexB.positionX, edge.vertexB.positionY);
+		context.lineTo(light.positionX, light.positionY);
+		context.stroke();
 	}
 }
 this.drawGraphDebug = drawGraphDebug;
