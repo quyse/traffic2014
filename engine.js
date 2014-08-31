@@ -588,6 +588,22 @@ function canGoForward(selfCar, edge, travel, depth) {
 			return false;
 	}
 
+	// go backward
+	for(var i = 0; i < edge.vertexA.inEdges.length; ++i) {
+		var backwardEdge = edge.vertexA.inEdges[i];
+		for(var j = 0; j < backwardEdge.cars.length; ++j) {
+			var car = backwardEdge.cars[j];
+			if(car == selfCar)
+				continue;
+			// if that car is not going to go on our edge, skip it
+			if(backwardEdge.vertexB.outEdges[car.getRandom(0)] != edge)
+				continue;
+			var distance = car.travel - backwardEdge.lengths[edgeSegmentsCount] - travel;
+			if(distance > 0 && distance < carFreeDistance)
+				return false;
+		}
+	}
+
 	return true;
 }
 Car.prototype.canGoForward = function() {
@@ -624,11 +640,9 @@ Car.prototype.process = function(world, time) {
 
 	// update position
 	var o = this.edge.getTravel(this.travelIndex, this.travel);
-	this.div.css({
-		transform: 'rotate(' + (o.angle + Math.PI) + 'rad)',
-		left: o.x - 75,
-		top: o.y - 25
-	});
+	this.div[0].style.transform = 'rotate(' + (o.angle + Math.PI) + 'rad)';
+	this.div[0].style.left = (o.x - 75) + 'px';
+	this.div[0].style.top = (o.y - 25) + 'px';
 };
 
 function World(graph, div, carTypes) {

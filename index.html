@@ -73,8 +73,8 @@
 			});
 
 			var scale = 1;
-			$('#canvasContainerContainer').bind('mousewheel', function(e) {
-				scale = Math.max(0.1, Math.min(1, scale + e.originalEvent.wheelDelta * 0.1 / 120));
+			$('#canvasContainerContainer').on('DOMMouseScroll mousewheel', function(e) {
+				scale = Math.max(0.1, Math.min(1, scale + ((-e.originalEvent.detail * 0.01) || (e.originalEvent.wheelDelta * 0.1 / 120))));
 				canvasContainer.css('transform', 'scale(' + scale + ')');
 			});
 
