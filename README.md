@@ -17,8 +17,4 @@ External libraries: jquery, jquery-ui (for editor only)
 
 ## Playable version
 
-http://quyse.net/traffic2014/
-
-## Submitted entry on geekparty.ru
-
-http://geekparty.ru/browse/GP8/traffic
+https://quyse.itch.io/traffic-2014
